@@ -1,7 +1,7 @@
 `include "tw_sram.v"
 `timescale 1ns/1ps
 `define DELAY #1
-module sram_wrapper #(
+module tw_sram_wrapper #(
   parameter DW = 32,
   parameter AW = 9
 ) (
