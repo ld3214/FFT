@@ -1,9 +1,9 @@
-`include "sram_32bit.v"
+`include "data_sram.v"
 `timescale 1ns/1ps
 `define DELAY #1
 module sram_wrapper #(
-  parameter DW = 16,
-  parameter AW = 11
+  parameter DW = 32,
+  parameter AW = 10
 ) (
   input  wire          clk ,
   input  wire          cen , // Chip Enable (active low)
@@ -23,7 +23,7 @@ module sram_wrapper #(
   assign `DELAY addr_delayed = addr;
   assign `DELAY din_delayed  = din;
 
-  wire [15:0] w_dout;
+  wire [31:0] w_dout;
   assign dout = w_dout[DW-1:0];
 
   // Dummy Instantiation - replace with your vendor's macro
