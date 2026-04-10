@@ -15,7 +15,7 @@
 //      Verilog model for Synchronous Single-Port Ram
 //
 //      Instance Name:              data_sram
-//      Words:                      1024
+//      Words:                      2048
 //      Bits:                       32
 //      Mux:                        16
 //      Drive:                      6
@@ -26,7 +26,7 @@
 //      Redundant Columns:          0
 //      Test Muxes                  Off
 //
-//      Creation Date:  Fri Apr 10 10:17:09 2026
+//      Creation Date:  Fri Apr 10 10:35:11 2026
 //      Version: 	r0p0-00eac0
 //
 //      Modeling Assumptions: This model supports full gate level simulation
@@ -68,10 +68,10 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 1024;
+  parameter WORDS = 2048;
   parameter MUX = 16;
   parameter MEM_WIDTH = 512; // redun block size 8, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 64;
+  parameter MEM_HEIGHT = 128;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
@@ -79,7 +79,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   input  CLK;
   input  CEN;
   input  WEN;
-  input [9:0] A;
+  input [10:0] A;
   input [31:0] D;
   input [2:0] EMA;
   input  RETN;
@@ -90,7 +90,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:63];
+  reg [511:0] mem [0:127];
   reg [511:0] row;
   reg LAST_CLK;
   reg [511:0] data_out;
@@ -108,8 +108,8 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   reg  CEN_int;
   wire  WEN_;
   reg  WEN_int;
-  wire [9:0] A_;
-  reg [9:0] A_int;
+  wire [10:0] A_;
+  reg [10:0] A_int;
   wire [31:0] D_;
   reg [31:0] D_int;
   wire [2:0] EMA_;
@@ -162,6 +162,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   assign A_[7] = A[7];
   assign A_[8] = A[8];
   assign A_[9] = A[9];
+  assign A_[10] = A[10];
   assign D_[0] = D[0];
   assign D_[1] = D[1];
   assign D_[2] = D[2];
@@ -248,7 +249,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
     end else if (CEN_int === 1'b0) begin
       mux_address = (A_int & 4'b1111);
       row_address = (A_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 128)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -300,7 +301,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
       Q_int = {32{1'b0}};
       CEN_int = 1'b0;
       WEN_int = 1'b0;
-      A_int = {10{1'b0}};
+      A_int = {11{1'b0}};
       D_int = {32{1'b0}};
       EMA_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -308,7 +309,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
       Q_int = {32{1'bx}};
       CEN_int = 1'bx;
       WEN_int = 1'bx;
-      A_int = {10{1'bx}};
+      A_int = {11{1'bx}};
       D_int = {32{1'bx}};
       EMA_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -352,10 +353,10 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 1024;
+  parameter WORDS = 2048;
   parameter MUX = 16;
   parameter MEM_WIDTH = 512; // redun block size 8, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 64;
+  parameter MEM_HEIGHT = 128;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
@@ -363,7 +364,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   input  CLK;
   input  CEN;
   input  WEN;
-  input [9:0] A;
+  input [10:0] A;
   input [31:0] D;
   input [2:0] EMA;
   input  RETN;
@@ -374,7 +375,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:63];
+  reg [511:0] mem [0:127];
   reg [511:0] row;
   reg LAST_CLK;
   reg [511:0] data_out;
@@ -383,12 +384,12 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   reg [31:0] Q_int;
   reg [31:0] writeEnable;
 
-  reg NOT_A0, NOT_A1, NOT_A2, NOT_A3, NOT_A4, NOT_A5, NOT_A6, NOT_A7, NOT_A8, NOT_A9;
-  reg NOT_CEN, NOT_CLK_MINH, NOT_CLK_MINL, NOT_CLK_PER, NOT_D0, NOT_D1, NOT_D10, NOT_D11;
-  reg NOT_D12, NOT_D13, NOT_D14, NOT_D15, NOT_D16, NOT_D17, NOT_D18, NOT_D19, NOT_D2;
-  reg NOT_D20, NOT_D21, NOT_D22, NOT_D23, NOT_D24, NOT_D25, NOT_D26, NOT_D27, NOT_D28;
-  reg NOT_D29, NOT_D3, NOT_D30, NOT_D31, NOT_D4, NOT_D5, NOT_D6, NOT_D7, NOT_D8, NOT_D9;
-  reg NOT_EMA0, NOT_EMA1, NOT_EMA2, NOT_RETN, NOT_WEN;
+  reg NOT_A0, NOT_A1, NOT_A10, NOT_A2, NOT_A3, NOT_A4, NOT_A5, NOT_A6, NOT_A7, NOT_A8;
+  reg NOT_A9, NOT_CEN, NOT_CLK_MINH, NOT_CLK_MINL, NOT_CLK_PER, NOT_D0, NOT_D1, NOT_D10;
+  reg NOT_D11, NOT_D12, NOT_D13, NOT_D14, NOT_D15, NOT_D16, NOT_D17, NOT_D18, NOT_D19;
+  reg NOT_D2, NOT_D20, NOT_D21, NOT_D22, NOT_D23, NOT_D24, NOT_D25, NOT_D26, NOT_D27;
+  reg NOT_D28, NOT_D29, NOT_D3, NOT_D30, NOT_D31, NOT_D4, NOT_D5, NOT_D6, NOT_D7, NOT_D8;
+  reg NOT_D9, NOT_EMA0, NOT_EMA1, NOT_EMA2, NOT_RETN, NOT_WEN;
   reg clk0_int;
   reg CREN_legal;
   initial CREN_legal = 1'b1;
@@ -399,8 +400,8 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   reg  CEN_int;
   wire  WEN_;
   reg  WEN_int;
-  wire [9:0] A_;
-  reg [9:0] A_int;
+  wire [10:0] A_;
+  reg [10:0] A_int;
   wire [31:0] D_;
   reg [31:0] D_int;
   wire [2:0] EMA_;
@@ -453,42 +454,43 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   buf B42(A_[7], A[7]);
   buf B43(A_[8], A[8]);
   buf B44(A_[9], A[9]);
-  buf B45(D_[0], D[0]);
-  buf B46(D_[1], D[1]);
-  buf B47(D_[2], D[2]);
-  buf B48(D_[3], D[3]);
-  buf B49(D_[4], D[4]);
-  buf B50(D_[5], D[5]);
-  buf B51(D_[6], D[6]);
-  buf B52(D_[7], D[7]);
-  buf B53(D_[8], D[8]);
-  buf B54(D_[9], D[9]);
-  buf B55(D_[10], D[10]);
-  buf B56(D_[11], D[11]);
-  buf B57(D_[12], D[12]);
-  buf B58(D_[13], D[13]);
-  buf B59(D_[14], D[14]);
-  buf B60(D_[15], D[15]);
-  buf B61(D_[16], D[16]);
-  buf B62(D_[17], D[17]);
-  buf B63(D_[18], D[18]);
-  buf B64(D_[19], D[19]);
-  buf B65(D_[20], D[20]);
-  buf B66(D_[21], D[21]);
-  buf B67(D_[22], D[22]);
-  buf B68(D_[23], D[23]);
-  buf B69(D_[24], D[24]);
-  buf B70(D_[25], D[25]);
-  buf B71(D_[26], D[26]);
-  buf B72(D_[27], D[27]);
-  buf B73(D_[28], D[28]);
-  buf B74(D_[29], D[29]);
-  buf B75(D_[30], D[30]);
-  buf B76(D_[31], D[31]);
-  buf B77(EMA_[0], EMA[0]);
-  buf B78(EMA_[1], EMA[1]);
-  buf B79(EMA_[2], EMA[2]);
-  buf B80(RETN_, RETN);
+  buf B45(A_[10], A[10]);
+  buf B46(D_[0], D[0]);
+  buf B47(D_[1], D[1]);
+  buf B48(D_[2], D[2]);
+  buf B49(D_[3], D[3]);
+  buf B50(D_[4], D[4]);
+  buf B51(D_[5], D[5]);
+  buf B52(D_[6], D[6]);
+  buf B53(D_[7], D[7]);
+  buf B54(D_[8], D[8]);
+  buf B55(D_[9], D[9]);
+  buf B56(D_[10], D[10]);
+  buf B57(D_[11], D[11]);
+  buf B58(D_[12], D[12]);
+  buf B59(D_[13], D[13]);
+  buf B60(D_[14], D[14]);
+  buf B61(D_[15], D[15]);
+  buf B62(D_[16], D[16]);
+  buf B63(D_[17], D[17]);
+  buf B64(D_[18], D[18]);
+  buf B65(D_[19], D[19]);
+  buf B66(D_[20], D[20]);
+  buf B67(D_[21], D[21]);
+  buf B68(D_[22], D[22]);
+  buf B69(D_[23], D[23]);
+  buf B70(D_[24], D[24]);
+  buf B71(D_[25], D[25]);
+  buf B72(D_[26], D[26]);
+  buf B73(D_[27], D[27]);
+  buf B74(D_[28], D[28]);
+  buf B75(D_[29], D[29]);
+  buf B76(D_[30], D[30]);
+  buf B77(D_[31], D[31]);
+  buf B78(EMA_[0], EMA[0]);
+  buf B79(EMA_[1], EMA[1]);
+  buf B80(EMA_[2], EMA[2]);
+  buf B81(RETN_, RETN);
 
   assign Q_ = RETN_ ? (Q_int) : {32{1'b0}};
 
@@ -539,7 +541,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
     end else if (CEN_int === 1'b0) begin
       mux_address = (A_int & 4'b1111);
       row_address = (A_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 128)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -591,7 +593,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
       Q_int = {32{1'b0}};
       CEN_int = 1'b0;
       WEN_int = 1'b0;
-      A_int = {10{1'b0}};
+      A_int = {11{1'b0}};
       D_int = {32{1'b0}};
       EMA_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -599,7 +601,7 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
       Q_int = {32{1'bx}};
       CEN_int = 1'bx;
       WEN_int = 1'bx;
-      A_int = {10{1'bx}};
+      A_int = {11{1'bx}};
       D_int = {32{1'bx}};
       EMA_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -647,6 +649,10 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   always @ NOT_A0 begin
     A_int[0] = 1'bx;
+    if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
+  end
+  always @ NOT_A10 begin
+    A_int[10] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
   always @ NOT_A1 begin
@@ -881,6 +887,8 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
       $setuphold(posedge CLK &&& CEN_flag, negedge CEN, 1.000, 0.500, NOT_CEN);
       $setuphold(posedge CLK &&& flag, posedge WEN, 1.000, 0.500, NOT_WEN);
       $setuphold(posedge CLK &&& flag, negedge WEN, 1.000, 0.500, NOT_WEN);
+      $setuphold(posedge CLK &&& flag, posedge A[10], 1.000, 0.500, NOT_A10);
+      $setuphold(posedge CLK &&& flag, negedge A[10], 1.000, 0.500, NOT_A10);
       $setuphold(posedge CLK &&& flag, posedge A[9], 1.000, 0.500, NOT_A9);
       $setuphold(posedge CLK &&& flag, negedge A[9], 1.000, 0.500, NOT_A9);
       $setuphold(posedge CLK &&& flag, posedge A[8], 1.000, 0.500, NOT_A8);
