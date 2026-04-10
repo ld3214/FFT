@@ -12,10 +12,10 @@
 //       The copyright notice(s) in this Software does not indicate actual or
 //       intended publication of this Software.
 //
-//      Verilog model for Synchronous Single-Port Ram
+//      Verilog model for Synchronous Dual-Port Ram
 //
 //      Instance Name:              data_sram
-//      Words:                      2048
+//      Words:                      1024
 //      Bits:                       32
 //      Mux:                        16
 //      Drive:                      6
@@ -26,8 +26,8 @@
 //      Redundant Columns:          0
 //      Test Muxes                  Off
 //
-//      Creation Date:  Fri Apr 10 10:35:11 2026
-//      Version: 	r0p0-00eac0
+//      Creation Date:  Fri Apr 10 12:15:13 2026
+//      Version: 	r0p1-00eac0
 //
 //      Modeling Assumptions: This model supports full gate level simulation
 //          including proper x-handling and timing check behavior.  Unit
@@ -59,29 +59,42 @@
 `else
 `define ARM_UD_SEQ #0.01
 `endif
+`ifdef ARM_UD_CC
+`else
+`define ARM_UD_CC 0.1
+`endif
 
 `celldefine
 `ifdef POWER_PINS
-module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN, VSS, VDD);
+module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EMAA,
+    EMAB, RETN, VSS, VDD);
 `else
-module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
+module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EMAA,
+    EMAB, RETN);
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 2048;
+  parameter WORDS = 1024;
   parameter MUX = 16;
-  parameter MEM_WIDTH = 512; // redun block size 8, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 128;
+  parameter MEM_WIDTH = 512; // redun block size 4, 256 on left, 256 on right
+  parameter MEM_HEIGHT = 64;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
-  output [31:0] Q;
-  input  CLK;
-  input  CEN;
-  input  WEN;
-  input [10:0] A;
-  input [31:0] D;
-  input [2:0] EMA;
+  output [31:0] QA;
+  output [31:0] QB;
+  input  CLKA;
+  input  CENA;
+  input  WENA;
+  input [9:0] AA;
+  input [31:0] DA;
+  input  CLKB;
+  input  CENB;
+  input  WENB;
+  input [9:0] AB;
+  input [31:0] DB;
+  input [2:0] EMAA;
+  input [2:0] EMAB;
   input  RETN;
 `ifdef POWER_PINS
   inout VSS;
@@ -90,117 +103,218 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:127];
+  reg [511:0] mem [0:63];
   reg [511:0] row;
-  reg LAST_CLK;
+  reg LAST_CLKA;
   reg [511:0] data_out;
   reg [511:0] row_mask;
   reg [511:0] new_data;
-  reg [31:0] Q_int;
+  reg LAST_CLKB;
+  reg [31:0] QA_int;
+  reg [31:0] QB_int;
   reg [31:0] writeEnable;
+  real previous_CLKA;
+  real previous_CLKB;
+  initial previous_CLKA = 0;
+  initial previous_CLKB = 0;
   reg clk0_int;
-  reg CREN_legal;
-  initial CREN_legal = 1'b1;
+  reg clk1_int;
+  reg CRENA_legal;
+  initial CRENA_legal = 1'b1;
+  reg CRENB_legal;
+  initial CRENB_legal = 1'b1;
 
-  wire [31:0] Q_;
- wire  CLK_;
-  wire  CEN_;
-  reg  CEN_int;
-  wire  WEN_;
-  reg  WEN_int;
-  wire [10:0] A_;
-  reg [10:0] A_int;
-  wire [31:0] D_;
-  reg [31:0] D_int;
-  wire [2:0] EMA_;
-  reg [2:0] EMA_int;
+  wire [31:0] QA_;
+  wire [31:0] QB_;
+ wire  CLKA_;
+  wire  CENA_;
+  reg  CENA_int;
+  wire  WENA_;
+  reg  WENA_int;
+  wire [9:0] AA_;
+  reg [9:0] AA_int;
+  wire [31:0] DA_;
+  reg [31:0] DA_int;
+ wire  CLKB_;
+  wire  CENB_;
+  reg  CENB_int;
+  wire  WENB_;
+  reg  WENB_int;
+  wire [9:0] AB_;
+  reg [9:0] AB_int;
+  wire [31:0] DB_;
+  reg [31:0] DB_int;
+  wire [2:0] EMAA_;
+  reg [2:0] EMAA_int;
+  wire [2:0] EMAB_;
+  reg [2:0] EMAB_int;
   wire  RETN_;
   reg  RETN_int;
 
-  assign Q[0] = Q_[0]; 
-  assign Q[1] = Q_[1]; 
-  assign Q[2] = Q_[2]; 
-  assign Q[3] = Q_[3]; 
-  assign Q[4] = Q_[4]; 
-  assign Q[5] = Q_[5]; 
-  assign Q[6] = Q_[6]; 
-  assign Q[7] = Q_[7]; 
-  assign Q[8] = Q_[8]; 
-  assign Q[9] = Q_[9]; 
-  assign Q[10] = Q_[10]; 
-  assign Q[11] = Q_[11]; 
-  assign Q[12] = Q_[12]; 
-  assign Q[13] = Q_[13]; 
-  assign Q[14] = Q_[14]; 
-  assign Q[15] = Q_[15]; 
-  assign Q[16] = Q_[16]; 
-  assign Q[17] = Q_[17]; 
-  assign Q[18] = Q_[18]; 
-  assign Q[19] = Q_[19]; 
-  assign Q[20] = Q_[20]; 
-  assign Q[21] = Q_[21]; 
-  assign Q[22] = Q_[22]; 
-  assign Q[23] = Q_[23]; 
-  assign Q[24] = Q_[24]; 
-  assign Q[25] = Q_[25]; 
-  assign Q[26] = Q_[26]; 
-  assign Q[27] = Q_[27]; 
-  assign Q[28] = Q_[28]; 
-  assign Q[29] = Q_[29]; 
-  assign Q[30] = Q_[30]; 
-  assign Q[31] = Q_[31]; 
-  assign CLK_ = CLK;
-  assign CEN_ = CEN;
-  assign WEN_ = WEN;
-  assign A_[0] = A[0];
-  assign A_[1] = A[1];
-  assign A_[2] = A[2];
-  assign A_[3] = A[3];
-  assign A_[4] = A[4];
-  assign A_[5] = A[5];
-  assign A_[6] = A[6];
-  assign A_[7] = A[7];
-  assign A_[8] = A[8];
-  assign A_[9] = A[9];
-  assign A_[10] = A[10];
-  assign D_[0] = D[0];
-  assign D_[1] = D[1];
-  assign D_[2] = D[2];
-  assign D_[3] = D[3];
-  assign D_[4] = D[4];
-  assign D_[5] = D[5];
-  assign D_[6] = D[6];
-  assign D_[7] = D[7];
-  assign D_[8] = D[8];
-  assign D_[9] = D[9];
-  assign D_[10] = D[10];
-  assign D_[11] = D[11];
-  assign D_[12] = D[12];
-  assign D_[13] = D[13];
-  assign D_[14] = D[14];
-  assign D_[15] = D[15];
-  assign D_[16] = D[16];
-  assign D_[17] = D[17];
-  assign D_[18] = D[18];
-  assign D_[19] = D[19];
-  assign D_[20] = D[20];
-  assign D_[21] = D[21];
-  assign D_[22] = D[22];
-  assign D_[23] = D[23];
-  assign D_[24] = D[24];
-  assign D_[25] = D[25];
-  assign D_[26] = D[26];
-  assign D_[27] = D[27];
-  assign D_[28] = D[28];
-  assign D_[29] = D[29];
-  assign D_[30] = D[30];
-  assign D_[31] = D[31];
-  assign EMA_[0] = EMA[0];
-  assign EMA_[1] = EMA[1];
-  assign EMA_[2] = EMA[2];
+  assign QA[0] = QA_[0]; 
+  assign QA[1] = QA_[1]; 
+  assign QA[2] = QA_[2]; 
+  assign QA[3] = QA_[3]; 
+  assign QA[4] = QA_[4]; 
+  assign QA[5] = QA_[5]; 
+  assign QA[6] = QA_[6]; 
+  assign QA[7] = QA_[7]; 
+  assign QA[8] = QA_[8]; 
+  assign QA[9] = QA_[9]; 
+  assign QA[10] = QA_[10]; 
+  assign QA[11] = QA_[11]; 
+  assign QA[12] = QA_[12]; 
+  assign QA[13] = QA_[13]; 
+  assign QA[14] = QA_[14]; 
+  assign QA[15] = QA_[15]; 
+  assign QA[16] = QA_[16]; 
+  assign QA[17] = QA_[17]; 
+  assign QA[18] = QA_[18]; 
+  assign QA[19] = QA_[19]; 
+  assign QA[20] = QA_[20]; 
+  assign QA[21] = QA_[21]; 
+  assign QA[22] = QA_[22]; 
+  assign QA[23] = QA_[23]; 
+  assign QA[24] = QA_[24]; 
+  assign QA[25] = QA_[25]; 
+  assign QA[26] = QA_[26]; 
+  assign QA[27] = QA_[27]; 
+  assign QA[28] = QA_[28]; 
+  assign QA[29] = QA_[29]; 
+  assign QA[30] = QA_[30]; 
+  assign QA[31] = QA_[31]; 
+  assign QB[0] = QB_[0]; 
+  assign QB[1] = QB_[1]; 
+  assign QB[2] = QB_[2]; 
+  assign QB[3] = QB_[3]; 
+  assign QB[4] = QB_[4]; 
+  assign QB[5] = QB_[5]; 
+  assign QB[6] = QB_[6]; 
+  assign QB[7] = QB_[7]; 
+  assign QB[8] = QB_[8]; 
+  assign QB[9] = QB_[9]; 
+  assign QB[10] = QB_[10]; 
+  assign QB[11] = QB_[11]; 
+  assign QB[12] = QB_[12]; 
+  assign QB[13] = QB_[13]; 
+  assign QB[14] = QB_[14]; 
+  assign QB[15] = QB_[15]; 
+  assign QB[16] = QB_[16]; 
+  assign QB[17] = QB_[17]; 
+  assign QB[18] = QB_[18]; 
+  assign QB[19] = QB_[19]; 
+  assign QB[20] = QB_[20]; 
+  assign QB[21] = QB_[21]; 
+  assign QB[22] = QB_[22]; 
+  assign QB[23] = QB_[23]; 
+  assign QB[24] = QB_[24]; 
+  assign QB[25] = QB_[25]; 
+  assign QB[26] = QB_[26]; 
+  assign QB[27] = QB_[27]; 
+  assign QB[28] = QB_[28]; 
+  assign QB[29] = QB_[29]; 
+  assign QB[30] = QB_[30]; 
+  assign QB[31] = QB_[31]; 
+  assign CLKA_ = CLKA;
+  assign CENA_ = CENA;
+  assign WENA_ = WENA;
+  assign AA_[0] = AA[0];
+  assign AA_[1] = AA[1];
+  assign AA_[2] = AA[2];
+  assign AA_[3] = AA[3];
+  assign AA_[4] = AA[4];
+  assign AA_[5] = AA[5];
+  assign AA_[6] = AA[6];
+  assign AA_[7] = AA[7];
+  assign AA_[8] = AA[8];
+  assign AA_[9] = AA[9];
+  assign DA_[0] = DA[0];
+  assign DA_[1] = DA[1];
+  assign DA_[2] = DA[2];
+  assign DA_[3] = DA[3];
+  assign DA_[4] = DA[4];
+  assign DA_[5] = DA[5];
+  assign DA_[6] = DA[6];
+  assign DA_[7] = DA[7];
+  assign DA_[8] = DA[8];
+  assign DA_[9] = DA[9];
+  assign DA_[10] = DA[10];
+  assign DA_[11] = DA[11];
+  assign DA_[12] = DA[12];
+  assign DA_[13] = DA[13];
+  assign DA_[14] = DA[14];
+  assign DA_[15] = DA[15];
+  assign DA_[16] = DA[16];
+  assign DA_[17] = DA[17];
+  assign DA_[18] = DA[18];
+  assign DA_[19] = DA[19];
+  assign DA_[20] = DA[20];
+  assign DA_[21] = DA[21];
+  assign DA_[22] = DA[22];
+  assign DA_[23] = DA[23];
+  assign DA_[24] = DA[24];
+  assign DA_[25] = DA[25];
+  assign DA_[26] = DA[26];
+  assign DA_[27] = DA[27];
+  assign DA_[28] = DA[28];
+  assign DA_[29] = DA[29];
+  assign DA_[30] = DA[30];
+  assign DA_[31] = DA[31];
+  assign CLKB_ = CLKB;
+  assign CENB_ = CENB;
+  assign WENB_ = WENB;
+  assign AB_[0] = AB[0];
+  assign AB_[1] = AB[1];
+  assign AB_[2] = AB[2];
+  assign AB_[3] = AB[3];
+  assign AB_[4] = AB[4];
+  assign AB_[5] = AB[5];
+  assign AB_[6] = AB[6];
+  assign AB_[7] = AB[7];
+  assign AB_[8] = AB[8];
+  assign AB_[9] = AB[9];
+  assign DB_[0] = DB[0];
+  assign DB_[1] = DB[1];
+  assign DB_[2] = DB[2];
+  assign DB_[3] = DB[3];
+  assign DB_[4] = DB[4];
+  assign DB_[5] = DB[5];
+  assign DB_[6] = DB[6];
+  assign DB_[7] = DB[7];
+  assign DB_[8] = DB[8];
+  assign DB_[9] = DB[9];
+  assign DB_[10] = DB[10];
+  assign DB_[11] = DB[11];
+  assign DB_[12] = DB[12];
+  assign DB_[13] = DB[13];
+  assign DB_[14] = DB[14];
+  assign DB_[15] = DB[15];
+  assign DB_[16] = DB[16];
+  assign DB_[17] = DB[17];
+  assign DB_[18] = DB[18];
+  assign DB_[19] = DB[19];
+  assign DB_[20] = DB[20];
+  assign DB_[21] = DB[21];
+  assign DB_[22] = DB[22];
+  assign DB_[23] = DB[23];
+  assign DB_[24] = DB[24];
+  assign DB_[25] = DB[25];
+  assign DB_[26] = DB[26];
+  assign DB_[27] = DB[27];
+  assign DB_[28] = DB[28];
+  assign DB_[29] = DB[29];
+  assign DB_[30] = DB[30];
+  assign DB_[31] = DB[31];
+  assign EMAA_[0] = EMAA[0];
+  assign EMAA_[1] = EMAA[1];
+  assign EMAA_[2] = EMAA[2];
+  assign EMAB_[0] = EMAB[0];
+  assign EMAB_[1] = EMAB[1];
+  assign EMAB_[2] = EMAB[2];
   assign RETN_ = RETN;
 
-  assign `ARM_UD_SEQ Q_ = RETN_ ? (Q_int) : {32{1'b0}};
+  assign `ARM_UD_SEQ QA_ = RETN_ ? (QA_int) : {32{1'b0}};
+  assign `ARM_UD_SEQ QB_ = RETN_ ? (QB_int) : {32{1'b0}};
 
 `ifdef INITIALIZE_MEMORY
   integer i;
@@ -226,34 +340,34 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   endfunction
 
 
-  task readWrite;
+  task readWriteA;
   begin
     if (RETN_int === 1'bx) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (RETN_int === 1'b0 && CEN_int === 1'b0) begin
+      QA_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0 && CENA_int === 1'b0) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
+      QA_int = {32{1'bx}};
     end else if (RETN_int === 1'b0) begin
       // no cycle in retention mode
-    end else if (^{CEN_int, EMA_int} === 1'bx) begin
+    end else if (^{CENA_int, EMAA_int} === 1'bx) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if ((A_int >= WORDS) && (CEN_int === 1'b0)) begin
-      writeEnable = ~{32{WEN_int}};
-      if ( WEN_int === 1'b1 )
-        Q_int = {32{1'bx}};
-    end else if (CEN_int === 1'b0 && (^A_int) === 1'bx) begin
-      if (WEN_int !== 1'b1) failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (CEN_int === 1'b0) begin
-      mux_address = (A_int & 4'b1111);
-      row_address = (A_int >> 4);
-      if (row_address >= 128)
+      QA_int = {32{1'bx}};
+    end else if ((AA_int >= WORDS) && (CENA_int === 1'b0)) begin
+      writeEnable = ~{32{WENA_int}};
+      if ( WENA_int === 1'b1 )
+        QA_int = {32{1'bx}};
+    end else if (CENA_int === 1'b0 && (^AA_int) === 1'bx) begin
+      if (WENA_int !== 1'b1) failedWrite(0);
+      QA_int = {32{1'bx}};
+    end else if (CENA_int === 1'b0) begin
+      mux_address = (AA_int & 4'b1111);
+      row_address = (AA_int >> 4);
+      if (row_address >= 64)
         row = {512{1'bx}};
       else
         row = mem[row_address];
-      writeEnable = ~{32{WEN_int}};
+      writeEnable = ~{32{WENA_int}};
       row_mask =  ( {15'b000000000000000, writeEnable[31], 15'b000000000000000, writeEnable[30],
           15'b000000000000000, writeEnable[29], 15'b000000000000000, writeEnable[28],
           15'b000000000000000, writeEnable[27], 15'b000000000000000, writeEnable[26],
@@ -270,22 +384,22 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
           15'b000000000000000, writeEnable[5], 15'b000000000000000, writeEnable[4],
           15'b000000000000000, writeEnable[3], 15'b000000000000000, writeEnable[2],
           15'b000000000000000, writeEnable[1], 15'b000000000000000, writeEnable[0]} << mux_address);
-      new_data =  ( {15'b000000000000000, D_int[31], 15'b000000000000000, D_int[30],
-          15'b000000000000000, D_int[29], 15'b000000000000000, D_int[28], 15'b000000000000000, D_int[27],
-          15'b000000000000000, D_int[26], 15'b000000000000000, D_int[25], 15'b000000000000000, D_int[24],
-          15'b000000000000000, D_int[23], 15'b000000000000000, D_int[22], 15'b000000000000000, D_int[21],
-          15'b000000000000000, D_int[20], 15'b000000000000000, D_int[19], 15'b000000000000000, D_int[18],
-          15'b000000000000000, D_int[17], 15'b000000000000000, D_int[16], 15'b000000000000000, D_int[15],
-          15'b000000000000000, D_int[14], 15'b000000000000000, D_int[13], 15'b000000000000000, D_int[12],
-          15'b000000000000000, D_int[11], 15'b000000000000000, D_int[10], 15'b000000000000000, D_int[9],
-          15'b000000000000000, D_int[8], 15'b000000000000000, D_int[7], 15'b000000000000000, D_int[6],
-          15'b000000000000000, D_int[5], 15'b000000000000000, D_int[4], 15'b000000000000000, D_int[3],
-          15'b000000000000000, D_int[2], 15'b000000000000000, D_int[1], 15'b000000000000000, D_int[0]} << mux_address);
+      new_data =  ( {15'b000000000000000, DA_int[31], 15'b000000000000000, DA_int[30],
+          15'b000000000000000, DA_int[29], 15'b000000000000000, DA_int[28], 15'b000000000000000, DA_int[27],
+          15'b000000000000000, DA_int[26], 15'b000000000000000, DA_int[25], 15'b000000000000000, DA_int[24],
+          15'b000000000000000, DA_int[23], 15'b000000000000000, DA_int[22], 15'b000000000000000, DA_int[21],
+          15'b000000000000000, DA_int[20], 15'b000000000000000, DA_int[19], 15'b000000000000000, DA_int[18],
+          15'b000000000000000, DA_int[17], 15'b000000000000000, DA_int[16], 15'b000000000000000, DA_int[15],
+          15'b000000000000000, DA_int[14], 15'b000000000000000, DA_int[13], 15'b000000000000000, DA_int[12],
+          15'b000000000000000, DA_int[11], 15'b000000000000000, DA_int[10], 15'b000000000000000, DA_int[9],
+          15'b000000000000000, DA_int[8], 15'b000000000000000, DA_int[7], 15'b000000000000000, DA_int[6],
+          15'b000000000000000, DA_int[5], 15'b000000000000000, DA_int[4], 15'b000000000000000, DA_int[3],
+          15'b000000000000000, DA_int[2], 15'b000000000000000, DA_int[1], 15'b000000000000000, DA_int[0]} << mux_address);
       row = (row & ~row_mask) | (row_mask & (~row_mask | new_data));
       mem[row_address] = row;
       data_out = (row >> mux_address);
-      if( WEN_int !== 1'b0 )
-         Q_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
+      if( WENA_int !== 1'b0 )
+         QA_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
            data_out[416], data_out[400], data_out[384], data_out[368], data_out[352],
            data_out[336], data_out[320], data_out[304], data_out[288], data_out[272],
            data_out[256], data_out[240], data_out[224], data_out[208], data_out[192],
@@ -298,47 +412,210 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   always @ RETN_ begin
     if (RETN_ == 1'b0) begin
-      Q_int = {32{1'b0}};
-      CEN_int = 1'b0;
-      WEN_int = 1'b0;
-      A_int = {11{1'b0}};
-      D_int = {32{1'b0}};
-      EMA_int = {3{1'b0}};
+      QA_int = {32{1'b0}};
+      CENA_int = 1'b0;
+      WENA_int = 1'b0;
+      AA_int = {10{1'b0}};
+      DA_int = {32{1'b0}};
+      EMAA_int = {3{1'b0}};
       RETN_int = 1'b0;
     end else begin
-      Q_int = {32{1'bx}};
-      CEN_int = 1'bx;
-      WEN_int = 1'bx;
-      A_int = {11{1'bx}};
-      D_int = {32{1'bx}};
-      EMA_int = {3{1'bx}};
+      QA_int = {32{1'bx}};
+      CENA_int = 1'bx;
+      WENA_int = 1'bx;
+      AA_int = {10{1'bx}};
+      DA_int = {32{1'bx}};
+      EMAA_int = {3{1'bx}};
       RETN_int = 1'bx;
     end
     RETN_int = RETN_;
   end
 
-  always @ CLK_ begin
+  always @ CLKA_ begin
 `ifdef POWER_PINS
     if (VSS === 1'bx || VSS === 1'bz)
       $display("ERROR: Illegal value for VSS %b", VSS);
     if (VDD === 1'bx || VDD === 1'bz)
       $display("ERROR: Illegal value for VDD %b", VDD);
 `endif
-    if (CLK_ === 1'bx && (CEN_ !== 1'b1)) begin
+    if (CLKA_ === 1'bx && (CENA_ !== 1'b1)) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (CLK_ === 1'b1 && LAST_CLK === 1'b0) begin
-      CEN_int = CEN_;
-      WEN_int = WEN_;
-      A_int = A_;
-      D_int = D_;
-      EMA_int = EMA_;
+      QA_int = {32{1'bx}};
+    end else if (CLKA_ === 1'b1 && LAST_CLKA === 1'b0) begin
+      CENA_int = CENA_;
+      WENA_int = WENA_;
+      AA_int = AA_;
+      DA_int = DA_;
+      EMAA_int = EMAA_;
       RETN_int = RETN_;
       clk0_int = 1'b0;
-      readWrite;
+      previous_CLKA = $realtime;
+      readWriteA;
+      if (previous_CLKA == previous_CLKB && is_contention(AA_int, AB_int, WENA_int,
+        WENB_int) && (CENA_int !== 1'b1 && CENB_int !== 1'b1)) begin
+        if (WENA_int !== 1'b1 && WENB_int !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_int !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_int !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
+      end
     end
-    LAST_CLK = CLK_;
+    LAST_CLKA = CLKA_;
   end
+
+  task readWriteB;
+  begin
+    if (RETN_int === 1'bx) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0 && CENB_int === 1'b0) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0) begin
+      // no cycle in retention mode
+    end else if (^{CENB_int, EMAB_int} === 1'bx) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if ((AB_int >= WORDS) && (CENB_int === 1'b0)) begin
+      writeEnable = ~{32{WENB_int}};
+      if ( WENB_int === 1'b1 )
+        QB_int = {32{1'bx}};
+    end else if (CENB_int === 1'b0 && (^AB_int) === 1'bx) begin
+      if (WENB_int !== 1'b1) failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (CENB_int === 1'b0) begin
+      mux_address = (AB_int & 4'b1111);
+      row_address = (AB_int >> 4);
+      if (row_address >= 64)
+        row = {512{1'bx}};
+      else
+        row = mem[row_address];
+      writeEnable = ~{32{WENB_int}};
+      row_mask =  ( {15'b000000000000000, writeEnable[31], 15'b000000000000000, writeEnable[30],
+          15'b000000000000000, writeEnable[29], 15'b000000000000000, writeEnable[28],
+          15'b000000000000000, writeEnable[27], 15'b000000000000000, writeEnable[26],
+          15'b000000000000000, writeEnable[25], 15'b000000000000000, writeEnable[24],
+          15'b000000000000000, writeEnable[23], 15'b000000000000000, writeEnable[22],
+          15'b000000000000000, writeEnable[21], 15'b000000000000000, writeEnable[20],
+          15'b000000000000000, writeEnable[19], 15'b000000000000000, writeEnable[18],
+          15'b000000000000000, writeEnable[17], 15'b000000000000000, writeEnable[16],
+          15'b000000000000000, writeEnable[15], 15'b000000000000000, writeEnable[14],
+          15'b000000000000000, writeEnable[13], 15'b000000000000000, writeEnable[12],
+          15'b000000000000000, writeEnable[11], 15'b000000000000000, writeEnable[10],
+          15'b000000000000000, writeEnable[9], 15'b000000000000000, writeEnable[8],
+          15'b000000000000000, writeEnable[7], 15'b000000000000000, writeEnable[6],
+          15'b000000000000000, writeEnable[5], 15'b000000000000000, writeEnable[4],
+          15'b000000000000000, writeEnable[3], 15'b000000000000000, writeEnable[2],
+          15'b000000000000000, writeEnable[1], 15'b000000000000000, writeEnable[0]} << mux_address);
+      new_data =  ( {15'b000000000000000, DB_int[31], 15'b000000000000000, DB_int[30],
+          15'b000000000000000, DB_int[29], 15'b000000000000000, DB_int[28], 15'b000000000000000, DB_int[27],
+          15'b000000000000000, DB_int[26], 15'b000000000000000, DB_int[25], 15'b000000000000000, DB_int[24],
+          15'b000000000000000, DB_int[23], 15'b000000000000000, DB_int[22], 15'b000000000000000, DB_int[21],
+          15'b000000000000000, DB_int[20], 15'b000000000000000, DB_int[19], 15'b000000000000000, DB_int[18],
+          15'b000000000000000, DB_int[17], 15'b000000000000000, DB_int[16], 15'b000000000000000, DB_int[15],
+          15'b000000000000000, DB_int[14], 15'b000000000000000, DB_int[13], 15'b000000000000000, DB_int[12],
+          15'b000000000000000, DB_int[11], 15'b000000000000000, DB_int[10], 15'b000000000000000, DB_int[9],
+          15'b000000000000000, DB_int[8], 15'b000000000000000, DB_int[7], 15'b000000000000000, DB_int[6],
+          15'b000000000000000, DB_int[5], 15'b000000000000000, DB_int[4], 15'b000000000000000, DB_int[3],
+          15'b000000000000000, DB_int[2], 15'b000000000000000, DB_int[1], 15'b000000000000000, DB_int[0]} << mux_address);
+      row = (row & ~row_mask) | (row_mask & (~row_mask | new_data));
+      mem[row_address] = row;
+      data_out = (row >> mux_address);
+      if( WENB_int !== 1'b0 )
+         QB_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
+           data_out[416], data_out[400], data_out[384], data_out[368], data_out[352],
+           data_out[336], data_out[320], data_out[304], data_out[288], data_out[272],
+           data_out[256], data_out[240], data_out[224], data_out[208], data_out[192],
+           data_out[176], data_out[160], data_out[144], data_out[128], data_out[112],
+           data_out[96], data_out[80], data_out[64], data_out[48], data_out[32], data_out[16],
+           data_out[0]};
+    end
+  end
+  endtask
+
+  always @ RETN_ begin
+    if (RETN_ == 1'b0) begin
+      QB_int = {32{1'b0}};
+      CENB_int = 1'b0;
+      WENB_int = 1'b0;
+      AB_int = {10{1'b0}};
+      DB_int = {32{1'b0}};
+      EMAB_int = {3{1'b0}};
+      RETN_int = 1'b0;
+    end else begin
+      QB_int = {32{1'bx}};
+      CENB_int = 1'bx;
+      WENB_int = 1'bx;
+      AB_int = {10{1'bx}};
+      DB_int = {32{1'bx}};
+      EMAB_int = {3{1'bx}};
+      RETN_int = 1'bx;
+    end
+    RETN_int = RETN_;
+  end
+
+  always @ CLKB_ begin
+`ifdef POWER_PINS
+    if (VSS === 1'bx || VSS === 1'bz)
+      $display("ERROR: Illegal value for VSS %b", VSS);
+    if (VDD === 1'bx || VDD === 1'bz)
+      $display("ERROR: Illegal value for VDD %b", VDD);
+`endif
+    if (CLKB_ === 1'bx && (CENB_ !== 1'b1)) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (CLKB_ === 1'b1 && LAST_CLKB === 1'b0) begin
+      CENB_int = CENB_;
+      WENB_int = WENB_;
+      AB_int = AB_;
+      DB_int = DB_;
+      EMAB_int = EMAB_;
+      RETN_int = RETN_;
+      clk1_int = 1'b0;
+      previous_CLKB = $realtime;
+      readWriteB;
+      if (previous_CLKA == previous_CLKB && is_contention(AA_int, AB_int, WENA_int,
+        WENB_int) && (CENB_int !== 1'b1 && CENA_int !== 1'b1)) begin
+        if (WENA_int !== 1'b1 && WENB_int !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_int !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_int !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
+      end
+    end
+    LAST_CLKB = CLKB_;
+  end
+
+
+  function is_contention;
+    input [9:0] aa;
+    input [9:0] ab;
+    input  wena;
+    input  wenb;
+    reg result;
+  begin
+    if ((& wena) === 1'b1 && (& wenb) === 1'b1) begin
+      result = 1'b0;
+    end else if (aa == ab) begin
+      result = 1'b1;
+    end else begin
+      result = 1'b0;
+    end
+    is_contention = result;
+  end
+  endfunction
 
 
 endmodule
@@ -347,26 +624,35 @@ endmodule
 `timescale 1 ns/1 ps
 `celldefine
 `ifdef POWER_PINS
-module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN, VSS, VDD);
+module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EMAA,
+    EMAB, RETN, VSS, VDD);
 `else
-module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
+module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EMAA,
+    EMAB, RETN);
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 2048;
+  parameter WORDS = 1024;
   parameter MUX = 16;
-  parameter MEM_WIDTH = 512; // redun block size 8, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 128;
+  parameter MEM_WIDTH = 512; // redun block size 4, 256 on left, 256 on right
+  parameter MEM_HEIGHT = 64;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
-  output [31:0] Q;
-  input  CLK;
-  input  CEN;
-  input  WEN;
-  input [10:0] A;
-  input [31:0] D;
-  input [2:0] EMA;
+  output [31:0] QA;
+  output [31:0] QB;
+  input  CLKA;
+  input  CENA;
+  input  WENA;
+  input [9:0] AA;
+  input [31:0] DA;
+  input  CLKB;
+  input  CENB;
+  input  WENB;
+  input [9:0] AB;
+  input [31:0] DB;
+  input [2:0] EMAA;
+  input [2:0] EMAB;
   input  RETN;
 `ifdef POWER_PINS
   inout VSS;
@@ -375,124 +661,236 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:127];
+  reg [511:0] mem [0:63];
   reg [511:0] row;
-  reg LAST_CLK;
+  reg LAST_CLKA;
   reg [511:0] data_out;
   reg [511:0] row_mask;
   reg [511:0] new_data;
-  reg [31:0] Q_int;
+  reg LAST_CLKB;
+  reg [31:0] QA_int;
+  reg [31:0] QB_int;
   reg [31:0] writeEnable;
+  real previous_CLKA;
+  real previous_CLKB;
+  initial previous_CLKA = 0;
+  initial previous_CLKB = 0;
+  reg  cont_flag0_int;
+  reg  cont_flag1_int;
+  initial cont_flag0_int = 1'b0;
+  initial cont_flag1_int = 1'b0;
 
-  reg NOT_A0, NOT_A1, NOT_A10, NOT_A2, NOT_A3, NOT_A4, NOT_A5, NOT_A6, NOT_A7, NOT_A8;
-  reg NOT_A9, NOT_CEN, NOT_CLK_MINH, NOT_CLK_MINL, NOT_CLK_PER, NOT_D0, NOT_D1, NOT_D10;
-  reg NOT_D11, NOT_D12, NOT_D13, NOT_D14, NOT_D15, NOT_D16, NOT_D17, NOT_D18, NOT_D19;
-  reg NOT_D2, NOT_D20, NOT_D21, NOT_D22, NOT_D23, NOT_D24, NOT_D25, NOT_D26, NOT_D27;
-  reg NOT_D28, NOT_D29, NOT_D3, NOT_D30, NOT_D31, NOT_D4, NOT_D5, NOT_D6, NOT_D7, NOT_D8;
-  reg NOT_D9, NOT_EMA0, NOT_EMA1, NOT_EMA2, NOT_RETN, NOT_WEN;
+  reg NOT_AA0, NOT_AA1, NOT_AA2, NOT_AA3, NOT_AA4, NOT_AA5, NOT_AA6, NOT_AA7, NOT_AA8;
+  reg NOT_AA9, NOT_AB0, NOT_AB1, NOT_AB2, NOT_AB3, NOT_AB4, NOT_AB5, NOT_AB6, NOT_AB7;
+  reg NOT_AB8, NOT_AB9, NOT_CENA, NOT_CENB, NOT_CLKA_MINH, NOT_CLKA_MINL, NOT_CLKA_PER;
+  reg NOT_CLKB_MINH, NOT_CLKB_MINL, NOT_CLKB_PER, NOT_CONTA, NOT_CONTB, NOT_DA0, NOT_DA1;
+  reg NOT_DA10, NOT_DA11, NOT_DA12, NOT_DA13, NOT_DA14, NOT_DA15, NOT_DA16, NOT_DA17;
+  reg NOT_DA18, NOT_DA19, NOT_DA2, NOT_DA20, NOT_DA21, NOT_DA22, NOT_DA23, NOT_DA24;
+  reg NOT_DA25, NOT_DA26, NOT_DA27, NOT_DA28, NOT_DA29, NOT_DA3, NOT_DA30, NOT_DA31;
+  reg NOT_DA4, NOT_DA5, NOT_DA6, NOT_DA7, NOT_DA8, NOT_DA9, NOT_DB0, NOT_DB1, NOT_DB10;
+  reg NOT_DB11, NOT_DB12, NOT_DB13, NOT_DB14, NOT_DB15, NOT_DB16, NOT_DB17, NOT_DB18;
+  reg NOT_DB19, NOT_DB2, NOT_DB20, NOT_DB21, NOT_DB22, NOT_DB23, NOT_DB24, NOT_DB25;
+  reg NOT_DB26, NOT_DB27, NOT_DB28, NOT_DB29, NOT_DB3, NOT_DB30, NOT_DB31, NOT_DB4;
+  reg NOT_DB5, NOT_DB6, NOT_DB7, NOT_DB8, NOT_DB9, NOT_EMAA0, NOT_EMAA1, NOT_EMAA2;
+  reg NOT_EMAB0, NOT_EMAB1, NOT_EMAB2, NOT_RETN, NOT_RETNA, NOT_RETNB, NOT_WENA, NOT_WENB;
   reg clk0_int;
-  reg CREN_legal;
-  initial CREN_legal = 1'b1;
+  reg clk1_int;
+  reg CRENA_legal;
+  initial CRENA_legal = 1'b1;
+  reg CRENB_legal;
+  initial CRENB_legal = 1'b1;
 
-  wire [31:0] Q_;
- wire  CLK_;
-  wire  CEN_;
-  reg  CEN_int;
-  wire  WEN_;
-  reg  WEN_int;
-  wire [10:0] A_;
-  reg [10:0] A_int;
-  wire [31:0] D_;
-  reg [31:0] D_int;
-  wire [2:0] EMA_;
-  reg [2:0] EMA_int;
+  wire [31:0] QA_;
+  wire [31:0] QB_;
+ wire  CLKA_;
+  wire  CENA_;
+  reg  CENA_int;
+  wire  WENA_;
+  reg  WENA_int;
+  wire [9:0] AA_;
+  reg [9:0] AA_int;
+  wire [31:0] DA_;
+  reg [31:0] DA_int;
+ wire  CLKB_;
+  wire  CENB_;
+  reg  CENB_int;
+  wire  WENB_;
+  reg  WENB_int;
+  wire [9:0] AB_;
+  reg [9:0] AB_int;
+  wire [31:0] DB_;
+  reg [31:0] DB_int;
+  wire [2:0] EMAA_;
+  reg [2:0] EMAA_int;
+  wire [2:0] EMAB_;
+  reg [2:0] EMAB_int;
   wire  RETN_;
   reg  RETN_int;
 
-  buf B0(Q[0], Q_[0]);
-  buf B1(Q[1], Q_[1]);
-  buf B2(Q[2], Q_[2]);
-  buf B3(Q[3], Q_[3]);
-  buf B4(Q[4], Q_[4]);
-  buf B5(Q[5], Q_[5]);
-  buf B6(Q[6], Q_[6]);
-  buf B7(Q[7], Q_[7]);
-  buf B8(Q[8], Q_[8]);
-  buf B9(Q[9], Q_[9]);
-  buf B10(Q[10], Q_[10]);
-  buf B11(Q[11], Q_[11]);
-  buf B12(Q[12], Q_[12]);
-  buf B13(Q[13], Q_[13]);
-  buf B14(Q[14], Q_[14]);
-  buf B15(Q[15], Q_[15]);
-  buf B16(Q[16], Q_[16]);
-  buf B17(Q[17], Q_[17]);
-  buf B18(Q[18], Q_[18]);
-  buf B19(Q[19], Q_[19]);
-  buf B20(Q[20], Q_[20]);
-  buf B21(Q[21], Q_[21]);
-  buf B22(Q[22], Q_[22]);
-  buf B23(Q[23], Q_[23]);
-  buf B24(Q[24], Q_[24]);
-  buf B25(Q[25], Q_[25]);
-  buf B26(Q[26], Q_[26]);
-  buf B27(Q[27], Q_[27]);
-  buf B28(Q[28], Q_[28]);
-  buf B29(Q[29], Q_[29]);
-  buf B30(Q[30], Q_[30]);
-  buf B31(Q[31], Q_[31]);
-  buf B32(CLK_, CLK);
-  buf B33(CEN_, CEN);
-  buf B34(WEN_, WEN);
-  buf B35(A_[0], A[0]);
-  buf B36(A_[1], A[1]);
-  buf B37(A_[2], A[2]);
-  buf B38(A_[3], A[3]);
-  buf B39(A_[4], A[4]);
-  buf B40(A_[5], A[5]);
-  buf B41(A_[6], A[6]);
-  buf B42(A_[7], A[7]);
-  buf B43(A_[8], A[8]);
-  buf B44(A_[9], A[9]);
-  buf B45(A_[10], A[10]);
-  buf B46(D_[0], D[0]);
-  buf B47(D_[1], D[1]);
-  buf B48(D_[2], D[2]);
-  buf B49(D_[3], D[3]);
-  buf B50(D_[4], D[4]);
-  buf B51(D_[5], D[5]);
-  buf B52(D_[6], D[6]);
-  buf B53(D_[7], D[7]);
-  buf B54(D_[8], D[8]);
-  buf B55(D_[9], D[9]);
-  buf B56(D_[10], D[10]);
-  buf B57(D_[11], D[11]);
-  buf B58(D_[12], D[12]);
-  buf B59(D_[13], D[13]);
-  buf B60(D_[14], D[14]);
-  buf B61(D_[15], D[15]);
-  buf B62(D_[16], D[16]);
-  buf B63(D_[17], D[17]);
-  buf B64(D_[18], D[18]);
-  buf B65(D_[19], D[19]);
-  buf B66(D_[20], D[20]);
-  buf B67(D_[21], D[21]);
-  buf B68(D_[22], D[22]);
-  buf B69(D_[23], D[23]);
-  buf B70(D_[24], D[24]);
-  buf B71(D_[25], D[25]);
-  buf B72(D_[26], D[26]);
-  buf B73(D_[27], D[27]);
-  buf B74(D_[28], D[28]);
-  buf B75(D_[29], D[29]);
-  buf B76(D_[30], D[30]);
-  buf B77(D_[31], D[31]);
-  buf B78(EMA_[0], EMA[0]);
-  buf B79(EMA_[1], EMA[1]);
-  buf B80(EMA_[2], EMA[2]);
-  buf B81(RETN_, RETN);
+  buf B0(QA[0], QA_[0]);
+  buf B1(QA[1], QA_[1]);
+  buf B2(QA[2], QA_[2]);
+  buf B3(QA[3], QA_[3]);
+  buf B4(QA[4], QA_[4]);
+  buf B5(QA[5], QA_[5]);
+  buf B6(QA[6], QA_[6]);
+  buf B7(QA[7], QA_[7]);
+  buf B8(QA[8], QA_[8]);
+  buf B9(QA[9], QA_[9]);
+  buf B10(QA[10], QA_[10]);
+  buf B11(QA[11], QA_[11]);
+  buf B12(QA[12], QA_[12]);
+  buf B13(QA[13], QA_[13]);
+  buf B14(QA[14], QA_[14]);
+  buf B15(QA[15], QA_[15]);
+  buf B16(QA[16], QA_[16]);
+  buf B17(QA[17], QA_[17]);
+  buf B18(QA[18], QA_[18]);
+  buf B19(QA[19], QA_[19]);
+  buf B20(QA[20], QA_[20]);
+  buf B21(QA[21], QA_[21]);
+  buf B22(QA[22], QA_[22]);
+  buf B23(QA[23], QA_[23]);
+  buf B24(QA[24], QA_[24]);
+  buf B25(QA[25], QA_[25]);
+  buf B26(QA[26], QA_[26]);
+  buf B27(QA[27], QA_[27]);
+  buf B28(QA[28], QA_[28]);
+  buf B29(QA[29], QA_[29]);
+  buf B30(QA[30], QA_[30]);
+  buf B31(QA[31], QA_[31]);
+  buf B32(QB[0], QB_[0]);
+  buf B33(QB[1], QB_[1]);
+  buf B34(QB[2], QB_[2]);
+  buf B35(QB[3], QB_[3]);
+  buf B36(QB[4], QB_[4]);
+  buf B37(QB[5], QB_[5]);
+  buf B38(QB[6], QB_[6]);
+  buf B39(QB[7], QB_[7]);
+  buf B40(QB[8], QB_[8]);
+  buf B41(QB[9], QB_[9]);
+  buf B42(QB[10], QB_[10]);
+  buf B43(QB[11], QB_[11]);
+  buf B44(QB[12], QB_[12]);
+  buf B45(QB[13], QB_[13]);
+  buf B46(QB[14], QB_[14]);
+  buf B47(QB[15], QB_[15]);
+  buf B48(QB[16], QB_[16]);
+  buf B49(QB[17], QB_[17]);
+  buf B50(QB[18], QB_[18]);
+  buf B51(QB[19], QB_[19]);
+  buf B52(QB[20], QB_[20]);
+  buf B53(QB[21], QB_[21]);
+  buf B54(QB[22], QB_[22]);
+  buf B55(QB[23], QB_[23]);
+  buf B56(QB[24], QB_[24]);
+  buf B57(QB[25], QB_[25]);
+  buf B58(QB[26], QB_[26]);
+  buf B59(QB[27], QB_[27]);
+  buf B60(QB[28], QB_[28]);
+  buf B61(QB[29], QB_[29]);
+  buf B62(QB[30], QB_[30]);
+  buf B63(QB[31], QB_[31]);
+  buf B64(CLKA_, CLKA);
+  buf B65(CENA_, CENA);
+  buf B66(WENA_, WENA);
+  buf B67(AA_[0], AA[0]);
+  buf B68(AA_[1], AA[1]);
+  buf B69(AA_[2], AA[2]);
+  buf B70(AA_[3], AA[3]);
+  buf B71(AA_[4], AA[4]);
+  buf B72(AA_[5], AA[5]);
+  buf B73(AA_[6], AA[6]);
+  buf B74(AA_[7], AA[7]);
+  buf B75(AA_[8], AA[8]);
+  buf B76(AA_[9], AA[9]);
+  buf B77(DA_[0], DA[0]);
+  buf B78(DA_[1], DA[1]);
+  buf B79(DA_[2], DA[2]);
+  buf B80(DA_[3], DA[3]);
+  buf B81(DA_[4], DA[4]);
+  buf B82(DA_[5], DA[5]);
+  buf B83(DA_[6], DA[6]);
+  buf B84(DA_[7], DA[7]);
+  buf B85(DA_[8], DA[8]);
+  buf B86(DA_[9], DA[9]);
+  buf B87(DA_[10], DA[10]);
+  buf B88(DA_[11], DA[11]);
+  buf B89(DA_[12], DA[12]);
+  buf B90(DA_[13], DA[13]);
+  buf B91(DA_[14], DA[14]);
+  buf B92(DA_[15], DA[15]);
+  buf B93(DA_[16], DA[16]);
+  buf B94(DA_[17], DA[17]);
+  buf B95(DA_[18], DA[18]);
+  buf B96(DA_[19], DA[19]);
+  buf B97(DA_[20], DA[20]);
+  buf B98(DA_[21], DA[21]);
+  buf B99(DA_[22], DA[22]);
+  buf B100(DA_[23], DA[23]);
+  buf B101(DA_[24], DA[24]);
+  buf B102(DA_[25], DA[25]);
+  buf B103(DA_[26], DA[26]);
+  buf B104(DA_[27], DA[27]);
+  buf B105(DA_[28], DA[28]);
+  buf B106(DA_[29], DA[29]);
+  buf B107(DA_[30], DA[30]);
+  buf B108(DA_[31], DA[31]);
+  buf B109(CLKB_, CLKB);
+  buf B110(CENB_, CENB);
+  buf B111(WENB_, WENB);
+  buf B112(AB_[0], AB[0]);
+  buf B113(AB_[1], AB[1]);
+  buf B114(AB_[2], AB[2]);
+  buf B115(AB_[3], AB[3]);
+  buf B116(AB_[4], AB[4]);
+  buf B117(AB_[5], AB[5]);
+  buf B118(AB_[6], AB[6]);
+  buf B119(AB_[7], AB[7]);
+  buf B120(AB_[8], AB[8]);
+  buf B121(AB_[9], AB[9]);
+  buf B122(DB_[0], DB[0]);
+  buf B123(DB_[1], DB[1]);
+  buf B124(DB_[2], DB[2]);
+  buf B125(DB_[3], DB[3]);
+  buf B126(DB_[4], DB[4]);
+  buf B127(DB_[5], DB[5]);
+  buf B128(DB_[6], DB[6]);
+  buf B129(DB_[7], DB[7]);
+  buf B130(DB_[8], DB[8]);
+  buf B131(DB_[9], DB[9]);
+  buf B132(DB_[10], DB[10]);
+  buf B133(DB_[11], DB[11]);
+  buf B134(DB_[12], DB[12]);
+  buf B135(DB_[13], DB[13]);
+  buf B136(DB_[14], DB[14]);
+  buf B137(DB_[15], DB[15]);
+  buf B138(DB_[16], DB[16]);
+  buf B139(DB_[17], DB[17]);
+  buf B140(DB_[18], DB[18]);
+  buf B141(DB_[19], DB[19]);
+  buf B142(DB_[20], DB[20]);
+  buf B143(DB_[21], DB[21]);
+  buf B144(DB_[22], DB[22]);
+  buf B145(DB_[23], DB[23]);
+  buf B146(DB_[24], DB[24]);
+  buf B147(DB_[25], DB[25]);
+  buf B148(DB_[26], DB[26]);
+  buf B149(DB_[27], DB[27]);
+  buf B150(DB_[28], DB[28]);
+  buf B151(DB_[29], DB[29]);
+  buf B152(DB_[30], DB[30]);
+  buf B153(DB_[31], DB[31]);
+  buf B154(EMAA_[0], EMAA[0]);
+  buf B155(EMAA_[1], EMAA[1]);
+  buf B156(EMAA_[2], EMAA[2]);
+  buf B157(EMAB_[0], EMAB[0]);
+  buf B158(EMAB_[1], EMAB[1]);
+  buf B159(EMAB_[2], EMAB[2]);
+  buf B160(RETN_, RETN);
 
-  assign Q_ = RETN_ ? (Q_int) : {32{1'b0}};
+  assign QA_ = RETN_ ? (QA_int) : {32{1'b0}};
+  assign QB_ = RETN_ ? (QB_int) : {32{1'b0}};
 
 `ifdef INITIALIZE_MEMORY
   integer i;
@@ -518,34 +916,34 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
   endfunction
 
 
-  task readWrite;
+  task readWriteA;
   begin
     if (RETN_int === 1'bx) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (RETN_int === 1'b0 && CEN_int === 1'b0) begin
+      QA_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0 && CENA_int === 1'b0) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
+      QA_int = {32{1'bx}};
     end else if (RETN_int === 1'b0) begin
       // no cycle in retention mode
-    end else if (^{CEN_int, EMA_int} === 1'bx) begin
+    end else if (^{CENA_int, EMAA_int} === 1'bx) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if ((A_int >= WORDS) && (CEN_int === 1'b0)) begin
-      writeEnable = ~{32{WEN_int}};
-      if ( WEN_int === 1'b1 )
-        Q_int = {32{1'bx}};
-    end else if (CEN_int === 1'b0 && (^A_int) === 1'bx) begin
-      if (WEN_int !== 1'b1) failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (CEN_int === 1'b0) begin
-      mux_address = (A_int & 4'b1111);
-      row_address = (A_int >> 4);
-      if (row_address >= 128)
+      QA_int = {32{1'bx}};
+    end else if ((AA_int >= WORDS) && (CENA_int === 1'b0)) begin
+      writeEnable = ~{32{WENA_int}};
+      if ( WENA_int === 1'b1 )
+        QA_int = {32{1'bx}};
+    end else if (CENA_int === 1'b0 && (^AA_int) === 1'bx) begin
+      if (WENA_int !== 1'b1) failedWrite(0);
+      QA_int = {32{1'bx}};
+    end else if (CENA_int === 1'b0) begin
+      mux_address = (AA_int & 4'b1111);
+      row_address = (AA_int >> 4);
+      if (row_address >= 64)
         row = {512{1'bx}};
       else
         row = mem[row_address];
-      writeEnable = ~{32{WEN_int}};
+      writeEnable = ~{32{WENA_int}};
       row_mask =  ( {15'b000000000000000, writeEnable[31], 15'b000000000000000, writeEnable[30],
           15'b000000000000000, writeEnable[29], 15'b000000000000000, writeEnable[28],
           15'b000000000000000, writeEnable[27], 15'b000000000000000, writeEnable[26],
@@ -562,22 +960,22 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
           15'b000000000000000, writeEnable[5], 15'b000000000000000, writeEnable[4],
           15'b000000000000000, writeEnable[3], 15'b000000000000000, writeEnable[2],
           15'b000000000000000, writeEnable[1], 15'b000000000000000, writeEnable[0]} << mux_address);
-      new_data =  ( {15'b000000000000000, D_int[31], 15'b000000000000000, D_int[30],
-          15'b000000000000000, D_int[29], 15'b000000000000000, D_int[28], 15'b000000000000000, D_int[27],
-          15'b000000000000000, D_int[26], 15'b000000000000000, D_int[25], 15'b000000000000000, D_int[24],
-          15'b000000000000000, D_int[23], 15'b000000000000000, D_int[22], 15'b000000000000000, D_int[21],
-          15'b000000000000000, D_int[20], 15'b000000000000000, D_int[19], 15'b000000000000000, D_int[18],
-          15'b000000000000000, D_int[17], 15'b000000000000000, D_int[16], 15'b000000000000000, D_int[15],
-          15'b000000000000000, D_int[14], 15'b000000000000000, D_int[13], 15'b000000000000000, D_int[12],
-          15'b000000000000000, D_int[11], 15'b000000000000000, D_int[10], 15'b000000000000000, D_int[9],
-          15'b000000000000000, D_int[8], 15'b000000000000000, D_int[7], 15'b000000000000000, D_int[6],
-          15'b000000000000000, D_int[5], 15'b000000000000000, D_int[4], 15'b000000000000000, D_int[3],
-          15'b000000000000000, D_int[2], 15'b000000000000000, D_int[1], 15'b000000000000000, D_int[0]} << mux_address);
+      new_data =  ( {15'b000000000000000, DA_int[31], 15'b000000000000000, DA_int[30],
+          15'b000000000000000, DA_int[29], 15'b000000000000000, DA_int[28], 15'b000000000000000, DA_int[27],
+          15'b000000000000000, DA_int[26], 15'b000000000000000, DA_int[25], 15'b000000000000000, DA_int[24],
+          15'b000000000000000, DA_int[23], 15'b000000000000000, DA_int[22], 15'b000000000000000, DA_int[21],
+          15'b000000000000000, DA_int[20], 15'b000000000000000, DA_int[19], 15'b000000000000000, DA_int[18],
+          15'b000000000000000, DA_int[17], 15'b000000000000000, DA_int[16], 15'b000000000000000, DA_int[15],
+          15'b000000000000000, DA_int[14], 15'b000000000000000, DA_int[13], 15'b000000000000000, DA_int[12],
+          15'b000000000000000, DA_int[11], 15'b000000000000000, DA_int[10], 15'b000000000000000, DA_int[9],
+          15'b000000000000000, DA_int[8], 15'b000000000000000, DA_int[7], 15'b000000000000000, DA_int[6],
+          15'b000000000000000, DA_int[5], 15'b000000000000000, DA_int[4], 15'b000000000000000, DA_int[3],
+          15'b000000000000000, DA_int[2], 15'b000000000000000, DA_int[1], 15'b000000000000000, DA_int[0]} << mux_address);
       row = (row & ~row_mask) | (row_mask & (~row_mask | new_data));
       mem[row_address] = row;
       data_out = (row >> mux_address);
-      if( WEN_int !== 1'b0 )
-         Q_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
+      if( WENA_int !== 1'b0 )
+         QA_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
            data_out[416], data_out[400], data_out[384], data_out[368], data_out[352],
            data_out[336], data_out[320], data_out[304], data_out[288], data_out[272],
            data_out[256], data_out[240], data_out[224], data_out[208], data_out[192],
@@ -590,46 +988,61 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   always @ RETN_ begin
     if (RETN_ == 1'b0) begin
-      Q_int = {32{1'b0}};
-      CEN_int = 1'b0;
-      WEN_int = 1'b0;
-      A_int = {11{1'b0}};
-      D_int = {32{1'b0}};
-      EMA_int = {3{1'b0}};
+      QA_int = {32{1'b0}};
+      CENA_int = 1'b0;
+      WENA_int = 1'b0;
+      AA_int = {10{1'b0}};
+      DA_int = {32{1'b0}};
+      EMAA_int = {3{1'b0}};
       RETN_int = 1'b0;
     end else begin
-      Q_int = {32{1'bx}};
-      CEN_int = 1'bx;
-      WEN_int = 1'bx;
-      A_int = {11{1'bx}};
-      D_int = {32{1'bx}};
-      EMA_int = {3{1'bx}};
+      QA_int = {32{1'bx}};
+      CENA_int = 1'bx;
+      WENA_int = 1'bx;
+      AA_int = {10{1'bx}};
+      DA_int = {32{1'bx}};
+      EMAA_int = {3{1'bx}};
       RETN_int = 1'bx;
     end
     RETN_int = RETN_;
   end
 
-  always @ CLK_ begin
+  always @ CLKA_ begin
 `ifdef POWER_PINS
     if (VSS === 1'bx || VSS === 1'bz)
       $display("ERROR: Illegal value for VSS %b", VSS);
     if (VDD === 1'bx || VDD === 1'bz)
       $display("ERROR: Illegal value for VDD %b", VDD);
 `endif
-    if (CLK_ === 1'bx && (CEN_ !== 1'b1)) begin
+    if (CLKA_ === 1'bx && (CENA_ !== 1'b1)) begin
       failedWrite(0);
-      Q_int = {32{1'bx}};
-    end else if (CLK_ === 1'b1 && LAST_CLK === 1'b0) begin
-      CEN_int = CEN_;
-      WEN_int = WEN_;
-      A_int = A_;
-      D_int = D_;
-      EMA_int = EMA_;
+      QA_int = {32{1'bx}};
+    end else if (CLKA_ === 1'b1 && LAST_CLKA === 1'b0) begin
+      CENA_int = CENA_;
+      WENA_int = WENA_;
+      AA_int = AA_;
+      DA_int = DA_;
+      EMAA_int = EMAA_;
       RETN_int = RETN_;
       clk0_int = 1'b0;
-      readWrite;
+      previous_CLKA = $realtime;
+      readWriteA;
+      if (previous_CLKA == previous_CLKB && is_contention(AA_int, AB_int, WENA_int,
+        WENB_int) && (CENA_int !== 1'b1 && CENB_int !== 1'b1)) begin
+        if (WENA_int !== 1'b1 && WENB_int !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_int !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_int !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
+      end
     end
-    LAST_CLK = CLK_;
+    LAST_CLKA = CLKA_;
   end
 
   reg globalNotifier0;
@@ -637,912 +1050,2044 @@ module data_sram (Q, CLK, CEN, WEN, A, D, EMA, RETN);
 
   always @ globalNotifier0 begin
     if ($realtime == 0) begin
-    end else if (CEN_int === 1'bx || EMA_int[0] === 1'bx || EMA_int[1] === 1'bx || 
-      EMA_int[2] === 1'bx || RETN_int === 1'bx || clk0_int === 1'bx) begin
-      Q_int = {32{1'bx}};
+    end else if (CENA_int === 1'bx || EMAA_int[0] === 1'bx || EMAA_int[1] === 1'bx || 
+      EMAA_int[2] === 1'bx || RETN_int === 1'bx || clk0_int === 1'bx) begin
+      QA_int = {32{1'bx}};
       failedWrite(0);
+    end else if (cont_flag0_int === 1'bx) begin
+      cont_flag0_int = 1'b0;
+        if (WENA_ !== 1'b1 && WENB_int !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_ !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_int !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
     end else begin
-      readWrite;
+      readWriteA;
    end
     globalNotifier0 = 1'b0;
   end
 
-  always @ NOT_A0 begin
-    A_int[0] = 1'bx;
+  task readWriteB;
+  begin
+    if (RETN_int === 1'bx) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0 && CENB_int === 1'b0) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (RETN_int === 1'b0) begin
+      // no cycle in retention mode
+    end else if (^{CENB_int, EMAB_int} === 1'bx) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if ((AB_int >= WORDS) && (CENB_int === 1'b0)) begin
+      writeEnable = ~{32{WENB_int}};
+      if ( WENB_int === 1'b1 )
+        QB_int = {32{1'bx}};
+    end else if (CENB_int === 1'b0 && (^AB_int) === 1'bx) begin
+      if (WENB_int !== 1'b1) failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (CENB_int === 1'b0) begin
+      mux_address = (AB_int & 4'b1111);
+      row_address = (AB_int >> 4);
+      if (row_address >= 64)
+        row = {512{1'bx}};
+      else
+        row = mem[row_address];
+      writeEnable = ~{32{WENB_int}};
+      row_mask =  ( {15'b000000000000000, writeEnable[31], 15'b000000000000000, writeEnable[30],
+          15'b000000000000000, writeEnable[29], 15'b000000000000000, writeEnable[28],
+          15'b000000000000000, writeEnable[27], 15'b000000000000000, writeEnable[26],
+          15'b000000000000000, writeEnable[25], 15'b000000000000000, writeEnable[24],
+          15'b000000000000000, writeEnable[23], 15'b000000000000000, writeEnable[22],
+          15'b000000000000000, writeEnable[21], 15'b000000000000000, writeEnable[20],
+          15'b000000000000000, writeEnable[19], 15'b000000000000000, writeEnable[18],
+          15'b000000000000000, writeEnable[17], 15'b000000000000000, writeEnable[16],
+          15'b000000000000000, writeEnable[15], 15'b000000000000000, writeEnable[14],
+          15'b000000000000000, writeEnable[13], 15'b000000000000000, writeEnable[12],
+          15'b000000000000000, writeEnable[11], 15'b000000000000000, writeEnable[10],
+          15'b000000000000000, writeEnable[9], 15'b000000000000000, writeEnable[8],
+          15'b000000000000000, writeEnable[7], 15'b000000000000000, writeEnable[6],
+          15'b000000000000000, writeEnable[5], 15'b000000000000000, writeEnable[4],
+          15'b000000000000000, writeEnable[3], 15'b000000000000000, writeEnable[2],
+          15'b000000000000000, writeEnable[1], 15'b000000000000000, writeEnable[0]} << mux_address);
+      new_data =  ( {15'b000000000000000, DB_int[31], 15'b000000000000000, DB_int[30],
+          15'b000000000000000, DB_int[29], 15'b000000000000000, DB_int[28], 15'b000000000000000, DB_int[27],
+          15'b000000000000000, DB_int[26], 15'b000000000000000, DB_int[25], 15'b000000000000000, DB_int[24],
+          15'b000000000000000, DB_int[23], 15'b000000000000000, DB_int[22], 15'b000000000000000, DB_int[21],
+          15'b000000000000000, DB_int[20], 15'b000000000000000, DB_int[19], 15'b000000000000000, DB_int[18],
+          15'b000000000000000, DB_int[17], 15'b000000000000000, DB_int[16], 15'b000000000000000, DB_int[15],
+          15'b000000000000000, DB_int[14], 15'b000000000000000, DB_int[13], 15'b000000000000000, DB_int[12],
+          15'b000000000000000, DB_int[11], 15'b000000000000000, DB_int[10], 15'b000000000000000, DB_int[9],
+          15'b000000000000000, DB_int[8], 15'b000000000000000, DB_int[7], 15'b000000000000000, DB_int[6],
+          15'b000000000000000, DB_int[5], 15'b000000000000000, DB_int[4], 15'b000000000000000, DB_int[3],
+          15'b000000000000000, DB_int[2], 15'b000000000000000, DB_int[1], 15'b000000000000000, DB_int[0]} << mux_address);
+      row = (row & ~row_mask) | (row_mask & (~row_mask | new_data));
+      mem[row_address] = row;
+      data_out = (row >> mux_address);
+      if( WENB_int !== 1'b0 )
+         QB_int = {data_out[496], data_out[480], data_out[464], data_out[448], data_out[432],
+           data_out[416], data_out[400], data_out[384], data_out[368], data_out[352],
+           data_out[336], data_out[320], data_out[304], data_out[288], data_out[272],
+           data_out[256], data_out[240], data_out[224], data_out[208], data_out[192],
+           data_out[176], data_out[160], data_out[144], data_out[128], data_out[112],
+           data_out[96], data_out[80], data_out[64], data_out[48], data_out[32], data_out[16],
+           data_out[0]};
+    end
+  end
+  endtask
+
+  always @ RETN_ begin
+    if (RETN_ == 1'b0) begin
+      QB_int = {32{1'b0}};
+      CENB_int = 1'b0;
+      WENB_int = 1'b0;
+      AB_int = {10{1'b0}};
+      DB_int = {32{1'b0}};
+      EMAB_int = {3{1'b0}};
+      RETN_int = 1'b0;
+    end else begin
+      QB_int = {32{1'bx}};
+      CENB_int = 1'bx;
+      WENB_int = 1'bx;
+      AB_int = {10{1'bx}};
+      DB_int = {32{1'bx}};
+      EMAB_int = {3{1'bx}};
+      RETN_int = 1'bx;
+    end
+    RETN_int = RETN_;
+  end
+
+  always @ CLKB_ begin
+`ifdef POWER_PINS
+    if (VSS === 1'bx || VSS === 1'bz)
+      $display("ERROR: Illegal value for VSS %b", VSS);
+    if (VDD === 1'bx || VDD === 1'bz)
+      $display("ERROR: Illegal value for VDD %b", VDD);
+`endif
+    if (CLKB_ === 1'bx && (CENB_ !== 1'b1)) begin
+      failedWrite(1);
+      QB_int = {32{1'bx}};
+    end else if (CLKB_ === 1'b1 && LAST_CLKB === 1'b0) begin
+      CENB_int = CENB_;
+      WENB_int = WENB_;
+      AB_int = AB_;
+      DB_int = DB_;
+      EMAB_int = EMAB_;
+      RETN_int = RETN_;
+      clk1_int = 1'b0;
+      previous_CLKB = $realtime;
+      readWriteB;
+      if (previous_CLKA == previous_CLKB && is_contention(AA_int, AB_int, WENA_int,
+        WENB_int) && (CENB_int !== 1'b1 && CENA_int !== 1'b1)) begin
+        if (WENA_int !== 1'b1 && WENB_int !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_int !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_int !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
+      end
+    end
+    LAST_CLKB = CLKB_;
+  end
+
+  reg globalNotifier1;
+  initial globalNotifier1 = 1'b0;
+
+  always @ globalNotifier1 begin
+    if ($realtime == 0) begin
+    end else if (CENB_int === 1'bx || EMAB_int[0] === 1'bx || EMAB_int[1] === 1'bx || 
+      EMAB_int[2] === 1'bx || RETN_int === 1'bx || clk1_int === 1'bx) begin
+      QB_int = {32{1'bx}};
+      failedWrite(1);
+    end else if (cont_flag1_int === 1'bx) begin
+      cont_flag1_int = 1'b0;
+        if (WENA_int !== 1'b1 && WENB_ !== 1'b1) begin
+          DA_int = {32{1'bx}};
+          readWriteA;
+          DB_int = {32{1'bx}};
+          readWriteB;
+        end else if (WENA_int !== 1'b1) begin
+          QB_int = {32{1'bx}};
+        end else if (WENB_ !== 1'b1) begin
+          QA_int = {32{1'bx}};
+        end else begin
+        end
+    end else begin
+      readWriteB;
+   end
+    globalNotifier1 = 1'b0;
+  end
+
+  always @ NOT_AA0 begin
+    AA_int[0] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A10 begin
-    A_int[10] = 1'bx;
+  always @ NOT_AA1 begin
+    AA_int[1] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A1 begin
-    A_int[1] = 1'bx;
+  always @ NOT_AA2 begin
+    AA_int[2] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A2 begin
-    A_int[2] = 1'bx;
+  always @ NOT_AA3 begin
+    AA_int[3] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A3 begin
-    A_int[3] = 1'bx;
+  always @ NOT_AA4 begin
+    AA_int[4] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A4 begin
-    A_int[4] = 1'bx;
+  always @ NOT_AA5 begin
+    AA_int[5] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A5 begin
-    A_int[5] = 1'bx;
+  always @ NOT_AA6 begin
+    AA_int[6] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A6 begin
-    A_int[6] = 1'bx;
+  always @ NOT_AA7 begin
+    AA_int[7] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A7 begin
-    A_int[7] = 1'bx;
+  always @ NOT_AA8 begin
+    AA_int[8] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A8 begin
-    A_int[8] = 1'bx;
+  always @ NOT_AA9 begin
+    AA_int[9] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_A9 begin
-    A_int[9] = 1'bx;
+  always @ NOT_AB0 begin
+    AB_int[0] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB1 begin
+    AB_int[1] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB2 begin
+    AB_int[2] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB3 begin
+    AB_int[3] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB4 begin
+    AB_int[4] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB5 begin
+    AB_int[5] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB6 begin
+    AB_int[6] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB7 begin
+    AB_int[7] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB8 begin
+    AB_int[8] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_AB9 begin
+    AB_int[9] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_CENA begin
+    CENA_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_CEN begin
-    CEN_int = 1'bx;
+  always @ NOT_CENB begin
+    CENB_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DA0 begin
+    DA_int[0] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D0 begin
-    D_int[0] = 1'bx;
+  always @ NOT_DA10 begin
+    DA_int[10] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D10 begin
-    D_int[10] = 1'bx;
+  always @ NOT_DA11 begin
+    DA_int[11] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D11 begin
-    D_int[11] = 1'bx;
+  always @ NOT_DA12 begin
+    DA_int[12] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D12 begin
-    D_int[12] = 1'bx;
+  always @ NOT_DA13 begin
+    DA_int[13] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D13 begin
-    D_int[13] = 1'bx;
+  always @ NOT_DA14 begin
+    DA_int[14] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D14 begin
-    D_int[14] = 1'bx;
+  always @ NOT_DA15 begin
+    DA_int[15] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D15 begin
-    D_int[15] = 1'bx;
+  always @ NOT_DA16 begin
+    DA_int[16] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D16 begin
-    D_int[16] = 1'bx;
+  always @ NOT_DA17 begin
+    DA_int[17] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D17 begin
-    D_int[17] = 1'bx;
+  always @ NOT_DA18 begin
+    DA_int[18] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D18 begin
-    D_int[18] = 1'bx;
+  always @ NOT_DA19 begin
+    DA_int[19] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D19 begin
-    D_int[19] = 1'bx;
+  always @ NOT_DA1 begin
+    DA_int[1] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D1 begin
-    D_int[1] = 1'bx;
+  always @ NOT_DA20 begin
+    DA_int[20] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D20 begin
-    D_int[20] = 1'bx;
+  always @ NOT_DA21 begin
+    DA_int[21] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D21 begin
-    D_int[21] = 1'bx;
+  always @ NOT_DA22 begin
+    DA_int[22] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D22 begin
-    D_int[22] = 1'bx;
+  always @ NOT_DA23 begin
+    DA_int[23] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D23 begin
-    D_int[23] = 1'bx;
+  always @ NOT_DA24 begin
+    DA_int[24] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D24 begin
-    D_int[24] = 1'bx;
+  always @ NOT_DA25 begin
+    DA_int[25] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D25 begin
-    D_int[25] = 1'bx;
+  always @ NOT_DA26 begin
+    DA_int[26] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D26 begin
-    D_int[26] = 1'bx;
+  always @ NOT_DA27 begin
+    DA_int[27] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D27 begin
-    D_int[27] = 1'bx;
+  always @ NOT_DA28 begin
+    DA_int[28] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D28 begin
-    D_int[28] = 1'bx;
+  always @ NOT_DA29 begin
+    DA_int[29] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D29 begin
-    D_int[29] = 1'bx;
+  always @ NOT_DA2 begin
+    DA_int[2] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D2 begin
-    D_int[2] = 1'bx;
+  always @ NOT_DA30 begin
+    DA_int[30] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D30 begin
-    D_int[30] = 1'bx;
+  always @ NOT_DA31 begin
+    DA_int[31] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D31 begin
-    D_int[31] = 1'bx;
+  always @ NOT_DA3 begin
+    DA_int[3] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D3 begin
-    D_int[3] = 1'bx;
+  always @ NOT_DA4 begin
+    DA_int[4] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D4 begin
-    D_int[4] = 1'bx;
+  always @ NOT_DA5 begin
+    DA_int[5] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D5 begin
-    D_int[5] = 1'bx;
+  always @ NOT_DA6 begin
+    DA_int[6] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D6 begin
-    D_int[6] = 1'bx;
+  always @ NOT_DA7 begin
+    DA_int[7] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D7 begin
-    D_int[7] = 1'bx;
+  always @ NOT_DA8 begin
+    DA_int[8] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D8 begin
-    D_int[8] = 1'bx;
+  always @ NOT_DA9 begin
+    DA_int[9] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_D9 begin
-    D_int[9] = 1'bx;
+  always @ NOT_DB0 begin
+    DB_int[0] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB10 begin
+    DB_int[10] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB11 begin
+    DB_int[11] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB12 begin
+    DB_int[12] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB13 begin
+    DB_int[13] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB14 begin
+    DB_int[14] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB15 begin
+    DB_int[15] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB16 begin
+    DB_int[16] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB17 begin
+    DB_int[17] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB18 begin
+    DB_int[18] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB19 begin
+    DB_int[19] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB1 begin
+    DB_int[1] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB20 begin
+    DB_int[20] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB21 begin
+    DB_int[21] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB22 begin
+    DB_int[22] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB23 begin
+    DB_int[23] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB24 begin
+    DB_int[24] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB25 begin
+    DB_int[25] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB26 begin
+    DB_int[26] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB27 begin
+    DB_int[27] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB28 begin
+    DB_int[28] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB29 begin
+    DB_int[29] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB2 begin
+    DB_int[2] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB30 begin
+    DB_int[30] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB31 begin
+    DB_int[31] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB3 begin
+    DB_int[3] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB4 begin
+    DB_int[4] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB5 begin
+    DB_int[5] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB6 begin
+    DB_int[6] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB7 begin
+    DB_int[7] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB8 begin
+    DB_int[8] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_DB9 begin
+    DB_int[9] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_EMAA0 begin
+    EMAA_int[0] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_EMA0 begin
-    EMA_int[0] = 1'bx;
+  always @ NOT_EMAA1 begin
+    EMAA_int[1] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_EMA1 begin
-    EMA_int[1] = 1'bx;
+  always @ NOT_EMAA2 begin
+    EMAA_int[2] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_EMA2 begin
-    EMA_int[2] = 1'bx;
-    if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
+  always @ NOT_EMAB0 begin
+    EMAB_int[0] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_EMAB1 begin
+    EMAB_int[1] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_EMAB2 begin
+    EMAB_int[2] = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
   end
   always @ NOT_RETN begin
     RETN_int = 1'bx;
+    if( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
+    if( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_RETNA begin
+    RETN_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_WEN begin
-    WEN_int = 1'bx;
+  always @ NOT_RETNB begin
+    RETN_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_WENA begin
+    WENA_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_CLK_MINH begin
+  always @ NOT_WENB begin
+    WENB_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_CLKA_MINH begin
     clk0_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_CLK_MINL begin
+  always @ NOT_CLKA_MINL begin
     clk0_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_CLK_PER begin
+  always @ NOT_CLKA_PER begin
     clk0_int = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
+  end
+  always @ NOT_CLKB_MINH begin
+    clk1_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_CLKB_MINL begin
+    clk1_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_CLKB_PER begin
+    clk1_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
+  end
+  always @ NOT_CONTA begin
+    cont_flag0_int = 1'bx;
+    if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
+  end
+  always @ NOT_CONTB begin
+    cont_flag1_int = 1'bx;
+    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
   end
 
-  wire CEN_flag;
-  wire flag;
-  wire D_flag;
-  wire cyc_flag;
-  wire EMA2eq0andEMA1eq0andEMA0eq0;
-  wire EMA2eq0andEMA1eq0andEMA0eq1;
-  wire EMA2eq0andEMA1eq1andEMA0eq0;
-  wire EMA2eq0andEMA1eq1andEMA0eq1;
-  wire EMA2eq1andEMA1eq0andEMA0eq0;
-  wire EMA2eq1andEMA1eq0andEMA0eq1;
-  wire EMA2eq1andEMA1eq1andEMA0eq0;
-  wire EMA2eq1andEMA1eq1andEMA0eq1;
-  assign CEN_flag = 1'b1;
-  assign flag = !CEN_;
-  assign D_flag = !(CEN_ || WEN_);
-  assign cyc_flag = !CEN_;
-  assign EMA2eq0andEMA1eq0andEMA0eq0 = !EMA_[2] && !EMA_[1] && !EMA_[0] && cyc_flag;
-  assign EMA2eq0andEMA1eq0andEMA0eq1 = !EMA_[2] && !EMA_[1] && EMA_[0] && cyc_flag;
-  assign EMA2eq0andEMA1eq1andEMA0eq0 = !EMA_[2] && EMA_[1] && !EMA_[0] && cyc_flag;
-  assign EMA2eq0andEMA1eq1andEMA0eq1 = !EMA_[2] && EMA_[1] && EMA_[0] && cyc_flag;
-  assign EMA2eq1andEMA1eq0andEMA0eq0 = EMA_[2] && !EMA_[1] && !EMA_[0] && cyc_flag;
-  assign EMA2eq1andEMA1eq0andEMA0eq1 = EMA_[2] && !EMA_[1] && EMA_[0] && cyc_flag;
-  assign EMA2eq1andEMA1eq1andEMA0eq0 = EMA_[2] && EMA_[1] && !EMA_[0] && cyc_flag;
-  assign EMA2eq1andEMA1eq1andEMA0eq1 = EMA_[2] && EMA_[1] && EMA_[0] && cyc_flag;
+  function is_contention;
+    input [9:0] aa;
+    input [9:0] ab;
+    input  wena;
+    input  wenb;
+    reg result;
+  begin
+    if ((& wena) === 1'b1 && (& wenb) === 1'b1) begin
+      result = 1'b0;
+    end else if (aa == ab) begin
+      result = 1'b1;
+    end else begin
+      result = 1'b0;
+    end
+    is_contention = result;
+  end
+  endfunction
+
+   wire contA_flag = is_contention(AB_, AA_int, WENB_, WENA_int) & (CENB_ !== 1'b1 && CENA_int !== 1'b1);
+   wire contB_flag = is_contention(AA_, AB_int, WENA_, WENB_int) & (CENA_ !== 1'b1 && CENB_int !== 1'b1);
+
+  wire CENA_flag;
+  wire flagA;
+  wire DA_flag;
+  wire cyc_flagA;
+  wire CENB_flag;
+  wire flagB;
+  wire DB_flag;
+  wire cyc_flagB;
+  wire contA_EMAA2eq0andEMAA1eq0andEMAA0eq0;
+  wire contA_EMAA2eq0andEMAA1eq0andEMAA0eq1;
+  wire contA_EMAA2eq0andEMAA1eq1andEMAA0eq0;
+  wire contA_EMAA2eq0andEMAA1eq1andEMAA0eq1;
+  wire contA_EMAA2eq1andEMAA1eq0andEMAA0eq0;
+  wire contA_EMAA2eq1andEMAA1eq0andEMAA0eq1;
+  wire contA_EMAA2eq1andEMAA1eq1andEMAA0eq0;
+  wire contA_EMAA2eq1andEMAA1eq1andEMAA0eq1;
+  wire contB_EMAB2eq0andEMAB1eq0andEMAB0eq0;
+  wire contB_EMAB2eq0andEMAB1eq0andEMAB0eq1;
+  wire contB_EMAB2eq0andEMAB1eq1andEMAB0eq0;
+  wire contB_EMAB2eq0andEMAB1eq1andEMAB0eq1;
+  wire contB_EMAB2eq1andEMAB1eq0andEMAB0eq0;
+  wire contB_EMAB2eq1andEMAB1eq0andEMAB0eq1;
+  wire contB_EMAB2eq1andEMAB1eq1andEMAB0eq0;
+  wire contB_EMAB2eq1andEMAB1eq1andEMAB0eq1;
+  wire EMAA2eq0andEMAA1eq0andEMAA0eq0;
+  wire EMAA2eq0andEMAA1eq0andEMAA0eq1;
+  wire EMAA2eq0andEMAA1eq1andEMAA0eq0;
+  wire EMAA2eq0andEMAA1eq1andEMAA0eq1;
+  wire EMAA2eq1andEMAA1eq0andEMAA0eq0;
+  wire EMAA2eq1andEMAA1eq0andEMAA0eq1;
+  wire EMAA2eq1andEMAA1eq1andEMAA0eq0;
+  wire EMAA2eq1andEMAA1eq1andEMAA0eq1;
+  wire EMAB2eq0andEMAB1eq0andEMAB0eq0;
+  wire EMAB2eq0andEMAB1eq0andEMAB0eq1;
+  wire EMAB2eq0andEMAB1eq1andEMAB0eq0;
+  wire EMAB2eq0andEMAB1eq1andEMAB0eq1;
+  wire EMAB2eq1andEMAB1eq0andEMAB0eq0;
+  wire EMAB2eq1andEMAB1eq0andEMAB0eq1;
+  wire EMAB2eq1andEMAB1eq1andEMAB0eq0;
+  wire EMAB2eq1andEMAB1eq1andEMAB0eq1;
+  assign CENA_flag = 1'b1;
+  assign flagA = !CENA_;
+  assign DA_flag = !(CENA_ || WENA_);
+  assign cyc_flagA = !CENA_;
+  assign CENB_flag = 1'b1;
+  assign flagB = !CENB_;
+  assign DB_flag = !(CENB_ || WENB_);
+  assign cyc_flagB = !CENB_;
+  assign contA_EMAA2eq0andEMAA1eq0andEMAA0eq0 = EMAA2eq0andEMAA1eq0andEMAA0eq0 && contA_flag;
+  assign contA_EMAA2eq0andEMAA1eq0andEMAA0eq1 = EMAA2eq0andEMAA1eq0andEMAA0eq1 && contA_flag;
+  assign contA_EMAA2eq0andEMAA1eq1andEMAA0eq0 = EMAA2eq0andEMAA1eq1andEMAA0eq0 && contA_flag;
+  assign contA_EMAA2eq0andEMAA1eq1andEMAA0eq1 = EMAA2eq0andEMAA1eq1andEMAA0eq1 && contA_flag;
+  assign contA_EMAA2eq1andEMAA1eq0andEMAA0eq0 = EMAA2eq1andEMAA1eq0andEMAA0eq0 && contA_flag;
+  assign contA_EMAA2eq1andEMAA1eq0andEMAA0eq1 = EMAA2eq1andEMAA1eq0andEMAA0eq1 && contA_flag;
+  assign contA_EMAA2eq1andEMAA1eq1andEMAA0eq0 = EMAA2eq1andEMAA1eq1andEMAA0eq0 && contA_flag;
+  assign contA_EMAA2eq1andEMAA1eq1andEMAA0eq1 = EMAA2eq1andEMAA1eq1andEMAA0eq1 && contA_flag;
+  assign contB_EMAB2eq0andEMAB1eq0andEMAB0eq0 = EMAB2eq0andEMAB1eq0andEMAB0eq0 && contB_flag;
+  assign contB_EMAB2eq0andEMAB1eq0andEMAB0eq1 = EMAB2eq0andEMAB1eq0andEMAB0eq1 && contB_flag;
+  assign contB_EMAB2eq0andEMAB1eq1andEMAB0eq0 = EMAB2eq0andEMAB1eq1andEMAB0eq0 && contB_flag;
+  assign contB_EMAB2eq0andEMAB1eq1andEMAB0eq1 = EMAB2eq0andEMAB1eq1andEMAB0eq1 && contB_flag;
+  assign contB_EMAB2eq1andEMAB1eq0andEMAB0eq0 = EMAB2eq1andEMAB1eq0andEMAB0eq0 && contB_flag;
+  assign contB_EMAB2eq1andEMAB1eq0andEMAB0eq1 = EMAB2eq1andEMAB1eq0andEMAB0eq1 && contB_flag;
+  assign contB_EMAB2eq1andEMAB1eq1andEMAB0eq0 = EMAB2eq1andEMAB1eq1andEMAB0eq0 && contB_flag;
+  assign contB_EMAB2eq1andEMAB1eq1andEMAB0eq1 = EMAB2eq1andEMAB1eq1andEMAB0eq1 && contB_flag;
+  assign EMAA2eq0andEMAA1eq0andEMAA0eq0 = !EMAA_[2] && !EMAA_[1] && !EMAA_[0] && cyc_flagA;
+  assign EMAA2eq0andEMAA1eq0andEMAA0eq1 = !EMAA_[2] && !EMAA_[1] && EMAA_[0] && cyc_flagA;
+  assign EMAA2eq0andEMAA1eq1andEMAA0eq0 = !EMAA_[2] && EMAA_[1] && !EMAA_[0] && cyc_flagA;
+  assign EMAA2eq0andEMAA1eq1andEMAA0eq1 = !EMAA_[2] && EMAA_[1] && EMAA_[0] && cyc_flagA;
+  assign EMAA2eq1andEMAA1eq0andEMAA0eq0 = EMAA_[2] && !EMAA_[1] && !EMAA_[0] && cyc_flagA;
+  assign EMAA2eq1andEMAA1eq0andEMAA0eq1 = EMAA_[2] && !EMAA_[1] && EMAA_[0] && cyc_flagA;
+  assign EMAA2eq1andEMAA1eq1andEMAA0eq0 = EMAA_[2] && EMAA_[1] && !EMAA_[0] && cyc_flagA;
+  assign EMAA2eq1andEMAA1eq1andEMAA0eq1 = EMAA_[2] && EMAA_[1] && EMAA_[0] && cyc_flagA;
+  assign EMAB2eq0andEMAB1eq0andEMAB0eq0 = !EMAB_[2] && !EMAB_[1] && !EMAB_[0] && cyc_flagB;
+  assign EMAB2eq0andEMAB1eq0andEMAB0eq1 = !EMAB_[2] && !EMAB_[1] && EMAB_[0] && cyc_flagB;
+  assign EMAB2eq0andEMAB1eq1andEMAB0eq0 = !EMAB_[2] && EMAB_[1] && !EMAB_[0] && cyc_flagB;
+  assign EMAB2eq0andEMAB1eq1andEMAB0eq1 = !EMAB_[2] && EMAB_[1] && EMAB_[0] && cyc_flagB;
+  assign EMAB2eq1andEMAB1eq0andEMAB0eq0 = EMAB_[2] && !EMAB_[1] && !EMAB_[0] && cyc_flagB;
+  assign EMAB2eq1andEMAB1eq0andEMAB0eq1 = EMAB_[2] && !EMAB_[1] && EMAB_[0] && cyc_flagB;
+  assign EMAB2eq1andEMAB1eq1andEMAB0eq0 = EMAB_[2] && EMAB_[1] && !EMAB_[0] && cyc_flagB;
+  assign EMAB2eq1andEMAB1eq1andEMAB0eq1 = EMAB_[2] && EMAB_[1] && EMAB_[0] && cyc_flagB;
 
   specify
-      $hold(posedge CEN, negedge RETN, 1.000, NOT_RETN);
-      $setuphold(posedge CLK &&& CEN_flag, posedge CEN, 1.000, 0.500, NOT_CEN);
-      $setuphold(posedge CLK &&& CEN_flag, negedge CEN, 1.000, 0.500, NOT_CEN);
-      $setuphold(posedge CLK &&& flag, posedge WEN, 1.000, 0.500, NOT_WEN);
-      $setuphold(posedge CLK &&& flag, negedge WEN, 1.000, 0.500, NOT_WEN);
-      $setuphold(posedge CLK &&& flag, posedge A[10], 1.000, 0.500, NOT_A10);
-      $setuphold(posedge CLK &&& flag, negedge A[10], 1.000, 0.500, NOT_A10);
-      $setuphold(posedge CLK &&& flag, posedge A[9], 1.000, 0.500, NOT_A9);
-      $setuphold(posedge CLK &&& flag, negedge A[9], 1.000, 0.500, NOT_A9);
-      $setuphold(posedge CLK &&& flag, posedge A[8], 1.000, 0.500, NOT_A8);
-      $setuphold(posedge CLK &&& flag, negedge A[8], 1.000, 0.500, NOT_A8);
-      $setuphold(posedge CLK &&& flag, posedge A[7], 1.000, 0.500, NOT_A7);
-      $setuphold(posedge CLK &&& flag, negedge A[7], 1.000, 0.500, NOT_A7);
-      $setuphold(posedge CLK &&& flag, posedge A[6], 1.000, 0.500, NOT_A6);
-      $setuphold(posedge CLK &&& flag, negedge A[6], 1.000, 0.500, NOT_A6);
-      $setuphold(posedge CLK &&& flag, posedge A[5], 1.000, 0.500, NOT_A5);
-      $setuphold(posedge CLK &&& flag, negedge A[5], 1.000, 0.500, NOT_A5);
-      $setuphold(posedge CLK &&& flag, posedge A[4], 1.000, 0.500, NOT_A4);
-      $setuphold(posedge CLK &&& flag, negedge A[4], 1.000, 0.500, NOT_A4);
-      $setuphold(posedge CLK &&& flag, posedge A[3], 1.000, 0.500, NOT_A3);
-      $setuphold(posedge CLK &&& flag, negedge A[3], 1.000, 0.500, NOT_A3);
-      $setuphold(posedge CLK &&& flag, posedge A[2], 1.000, 0.500, NOT_A2);
-      $setuphold(posedge CLK &&& flag, negedge A[2], 1.000, 0.500, NOT_A2);
-      $setuphold(posedge CLK &&& flag, posedge A[1], 1.000, 0.500, NOT_A1);
-      $setuphold(posedge CLK &&& flag, negedge A[1], 1.000, 0.500, NOT_A1);
-      $setuphold(posedge CLK &&& flag, posedge A[0], 1.000, 0.500, NOT_A0);
-      $setuphold(posedge CLK &&& flag, negedge A[0], 1.000, 0.500, NOT_A0);
-      $setuphold(posedge CLK &&& D_flag, posedge D[31], 1.000, 0.500, NOT_D31);
-      $setuphold(posedge CLK &&& D_flag, negedge D[31], 1.000, 0.500, NOT_D31);
-      $setuphold(posedge CLK &&& D_flag, posedge D[30], 1.000, 0.500, NOT_D30);
-      $setuphold(posedge CLK &&& D_flag, negedge D[30], 1.000, 0.500, NOT_D30);
-      $setuphold(posedge CLK &&& D_flag, posedge D[29], 1.000, 0.500, NOT_D29);
-      $setuphold(posedge CLK &&& D_flag, negedge D[29], 1.000, 0.500, NOT_D29);
-      $setuphold(posedge CLK &&& D_flag, posedge D[28], 1.000, 0.500, NOT_D28);
-      $setuphold(posedge CLK &&& D_flag, negedge D[28], 1.000, 0.500, NOT_D28);
-      $setuphold(posedge CLK &&& D_flag, posedge D[27], 1.000, 0.500, NOT_D27);
-      $setuphold(posedge CLK &&& D_flag, negedge D[27], 1.000, 0.500, NOT_D27);
-      $setuphold(posedge CLK &&& D_flag, posedge D[26], 1.000, 0.500, NOT_D26);
-      $setuphold(posedge CLK &&& D_flag, negedge D[26], 1.000, 0.500, NOT_D26);
-      $setuphold(posedge CLK &&& D_flag, posedge D[25], 1.000, 0.500, NOT_D25);
-      $setuphold(posedge CLK &&& D_flag, negedge D[25], 1.000, 0.500, NOT_D25);
-      $setuphold(posedge CLK &&& D_flag, posedge D[24], 1.000, 0.500, NOT_D24);
-      $setuphold(posedge CLK &&& D_flag, negedge D[24], 1.000, 0.500, NOT_D24);
-      $setuphold(posedge CLK &&& D_flag, posedge D[23], 1.000, 0.500, NOT_D23);
-      $setuphold(posedge CLK &&& D_flag, negedge D[23], 1.000, 0.500, NOT_D23);
-      $setuphold(posedge CLK &&& D_flag, posedge D[22], 1.000, 0.500, NOT_D22);
-      $setuphold(posedge CLK &&& D_flag, negedge D[22], 1.000, 0.500, NOT_D22);
-      $setuphold(posedge CLK &&& D_flag, posedge D[21], 1.000, 0.500, NOT_D21);
-      $setuphold(posedge CLK &&& D_flag, negedge D[21], 1.000, 0.500, NOT_D21);
-      $setuphold(posedge CLK &&& D_flag, posedge D[20], 1.000, 0.500, NOT_D20);
-      $setuphold(posedge CLK &&& D_flag, negedge D[20], 1.000, 0.500, NOT_D20);
-      $setuphold(posedge CLK &&& D_flag, posedge D[19], 1.000, 0.500, NOT_D19);
-      $setuphold(posedge CLK &&& D_flag, negedge D[19], 1.000, 0.500, NOT_D19);
-      $setuphold(posedge CLK &&& D_flag, posedge D[18], 1.000, 0.500, NOT_D18);
-      $setuphold(posedge CLK &&& D_flag, negedge D[18], 1.000, 0.500, NOT_D18);
-      $setuphold(posedge CLK &&& D_flag, posedge D[17], 1.000, 0.500, NOT_D17);
-      $setuphold(posedge CLK &&& D_flag, negedge D[17], 1.000, 0.500, NOT_D17);
-      $setuphold(posedge CLK &&& D_flag, posedge D[16], 1.000, 0.500, NOT_D16);
-      $setuphold(posedge CLK &&& D_flag, negedge D[16], 1.000, 0.500, NOT_D16);
-      $setuphold(posedge CLK &&& D_flag, posedge D[15], 1.000, 0.500, NOT_D15);
-      $setuphold(posedge CLK &&& D_flag, negedge D[15], 1.000, 0.500, NOT_D15);
-      $setuphold(posedge CLK &&& D_flag, posedge D[14], 1.000, 0.500, NOT_D14);
-      $setuphold(posedge CLK &&& D_flag, negedge D[14], 1.000, 0.500, NOT_D14);
-      $setuphold(posedge CLK &&& D_flag, posedge D[13], 1.000, 0.500, NOT_D13);
-      $setuphold(posedge CLK &&& D_flag, negedge D[13], 1.000, 0.500, NOT_D13);
-      $setuphold(posedge CLK &&& D_flag, posedge D[12], 1.000, 0.500, NOT_D12);
-      $setuphold(posedge CLK &&& D_flag, negedge D[12], 1.000, 0.500, NOT_D12);
-      $setuphold(posedge CLK &&& D_flag, posedge D[11], 1.000, 0.500, NOT_D11);
-      $setuphold(posedge CLK &&& D_flag, negedge D[11], 1.000, 0.500, NOT_D11);
-      $setuphold(posedge CLK &&& D_flag, posedge D[10], 1.000, 0.500, NOT_D10);
-      $setuphold(posedge CLK &&& D_flag, negedge D[10], 1.000, 0.500, NOT_D10);
-      $setuphold(posedge CLK &&& D_flag, posedge D[9], 1.000, 0.500, NOT_D9);
-      $setuphold(posedge CLK &&& D_flag, negedge D[9], 1.000, 0.500, NOT_D9);
-      $setuphold(posedge CLK &&& D_flag, posedge D[8], 1.000, 0.500, NOT_D8);
-      $setuphold(posedge CLK &&& D_flag, negedge D[8], 1.000, 0.500, NOT_D8);
-      $setuphold(posedge CLK &&& D_flag, posedge D[7], 1.000, 0.500, NOT_D7);
-      $setuphold(posedge CLK &&& D_flag, negedge D[7], 1.000, 0.500, NOT_D7);
-      $setuphold(posedge CLK &&& D_flag, posedge D[6], 1.000, 0.500, NOT_D6);
-      $setuphold(posedge CLK &&& D_flag, negedge D[6], 1.000, 0.500, NOT_D6);
-      $setuphold(posedge CLK &&& D_flag, posedge D[5], 1.000, 0.500, NOT_D5);
-      $setuphold(posedge CLK &&& D_flag, negedge D[5], 1.000, 0.500, NOT_D5);
-      $setuphold(posedge CLK &&& D_flag, posedge D[4], 1.000, 0.500, NOT_D4);
-      $setuphold(posedge CLK &&& D_flag, negedge D[4], 1.000, 0.500, NOT_D4);
-      $setuphold(posedge CLK &&& D_flag, posedge D[3], 1.000, 0.500, NOT_D3);
-      $setuphold(posedge CLK &&& D_flag, negedge D[3], 1.000, 0.500, NOT_D3);
-      $setuphold(posedge CLK &&& D_flag, posedge D[2], 1.000, 0.500, NOT_D2);
-      $setuphold(posedge CLK &&& D_flag, negedge D[2], 1.000, 0.500, NOT_D2);
-      $setuphold(posedge CLK &&& D_flag, posedge D[1], 1.000, 0.500, NOT_D1);
-      $setuphold(posedge CLK &&& D_flag, negedge D[1], 1.000, 0.500, NOT_D1);
-      $setuphold(posedge CLK &&& D_flag, posedge D[0], 1.000, 0.500, NOT_D0);
-      $setuphold(posedge CLK &&& D_flag, negedge D[0], 1.000, 0.500, NOT_D0);
-      $setuphold(posedge CLK &&& cyc_flag, posedge EMA[2], 1.000, 0.500, NOT_EMA2);
-      $setuphold(posedge CLK &&& cyc_flag, negedge EMA[2], 1.000, 0.500, NOT_EMA2);
-      $setuphold(posedge CLK &&& cyc_flag, posedge EMA[1], 1.000, 0.500, NOT_EMA1);
-      $setuphold(posedge CLK &&& cyc_flag, negedge EMA[1], 1.000, 0.500, NOT_EMA1);
-      $setuphold(posedge CLK &&& cyc_flag, posedge EMA[0], 1.000, 0.500, NOT_EMA0);
-      $setuphold(posedge CLK &&& cyc_flag, negedge EMA[0], 1.000, 0.500, NOT_EMA0);
-      $setuphold(posedge CLK, posedge RETN, 1.000, 0.500, NOT_RETN);
-      $setuphold(posedge CLK, negedge RETN, 1.000, 0.500, NOT_RETN);
-      $hold(posedge RETN, negedge CEN, 1.000, NOT_RETN);
+      $hold(posedge CENA, negedge RETN, 1.000, NOT_RETN);
+      $setuphold(posedge CLKA &&& CENA_flag, posedge CENA, 1.000, 0.500, NOT_CENA);
+      $setuphold(posedge CLKA &&& CENA_flag, negedge CENA, 1.000, 0.500, NOT_CENA);
+      $setuphold(posedge CLKA &&& flagA, posedge WENA, 1.000, 0.500, NOT_WENA);
+      $setuphold(posedge CLKA &&& flagA, negedge WENA, 1.000, 0.500, NOT_WENA);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[9], 1.000, 0.500, NOT_AA9);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[9], 1.000, 0.500, NOT_AA9);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[8], 1.000, 0.500, NOT_AA8);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[8], 1.000, 0.500, NOT_AA8);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[7], 1.000, 0.500, NOT_AA7);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[7], 1.000, 0.500, NOT_AA7);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[6], 1.000, 0.500, NOT_AA6);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[6], 1.000, 0.500, NOT_AA6);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[5], 1.000, 0.500, NOT_AA5);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[5], 1.000, 0.500, NOT_AA5);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[4], 1.000, 0.500, NOT_AA4);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[4], 1.000, 0.500, NOT_AA4);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[3], 1.000, 0.500, NOT_AA3);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[3], 1.000, 0.500, NOT_AA3);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[2], 1.000, 0.500, NOT_AA2);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[2], 1.000, 0.500, NOT_AA2);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[1], 1.000, 0.500, NOT_AA1);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[1], 1.000, 0.500, NOT_AA1);
+      $setuphold(posedge CLKA &&& flagA, posedge AA[0], 1.000, 0.500, NOT_AA0);
+      $setuphold(posedge CLKA &&& flagA, negedge AA[0], 1.000, 0.500, NOT_AA0);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[31], 1.000, 0.500, NOT_DA31);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[31], 1.000, 0.500, NOT_DA31);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[30], 1.000, 0.500, NOT_DA30);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[30], 1.000, 0.500, NOT_DA30);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[29], 1.000, 0.500, NOT_DA29);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[29], 1.000, 0.500, NOT_DA29);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[28], 1.000, 0.500, NOT_DA28);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[28], 1.000, 0.500, NOT_DA28);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[27], 1.000, 0.500, NOT_DA27);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[27], 1.000, 0.500, NOT_DA27);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[26], 1.000, 0.500, NOT_DA26);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[26], 1.000, 0.500, NOT_DA26);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[25], 1.000, 0.500, NOT_DA25);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[25], 1.000, 0.500, NOT_DA25);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[24], 1.000, 0.500, NOT_DA24);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[24], 1.000, 0.500, NOT_DA24);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[23], 1.000, 0.500, NOT_DA23);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[23], 1.000, 0.500, NOT_DA23);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[22], 1.000, 0.500, NOT_DA22);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[22], 1.000, 0.500, NOT_DA22);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[21], 1.000, 0.500, NOT_DA21);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[21], 1.000, 0.500, NOT_DA21);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[20], 1.000, 0.500, NOT_DA20);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[20], 1.000, 0.500, NOT_DA20);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[19], 1.000, 0.500, NOT_DA19);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[19], 1.000, 0.500, NOT_DA19);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[18], 1.000, 0.500, NOT_DA18);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[18], 1.000, 0.500, NOT_DA18);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[17], 1.000, 0.500, NOT_DA17);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[17], 1.000, 0.500, NOT_DA17);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[16], 1.000, 0.500, NOT_DA16);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[16], 1.000, 0.500, NOT_DA16);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[15], 1.000, 0.500, NOT_DA15);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[15], 1.000, 0.500, NOT_DA15);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[14], 1.000, 0.500, NOT_DA14);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[14], 1.000, 0.500, NOT_DA14);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[13], 1.000, 0.500, NOT_DA13);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[13], 1.000, 0.500, NOT_DA13);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[12], 1.000, 0.500, NOT_DA12);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[12], 1.000, 0.500, NOT_DA12);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[11], 1.000, 0.500, NOT_DA11);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[11], 1.000, 0.500, NOT_DA11);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[10], 1.000, 0.500, NOT_DA10);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[10], 1.000, 0.500, NOT_DA10);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[9], 1.000, 0.500, NOT_DA9);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[9], 1.000, 0.500, NOT_DA9);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[8], 1.000, 0.500, NOT_DA8);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[8], 1.000, 0.500, NOT_DA8);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[7], 1.000, 0.500, NOT_DA7);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[7], 1.000, 0.500, NOT_DA7);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[6], 1.000, 0.500, NOT_DA6);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[6], 1.000, 0.500, NOT_DA6);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[5], 1.000, 0.500, NOT_DA5);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[5], 1.000, 0.500, NOT_DA5);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[4], 1.000, 0.500, NOT_DA4);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[4], 1.000, 0.500, NOT_DA4);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[3], 1.000, 0.500, NOT_DA3);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[3], 1.000, 0.500, NOT_DA3);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[2], 1.000, 0.500, NOT_DA2);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[2], 1.000, 0.500, NOT_DA2);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[1], 1.000, 0.500, NOT_DA1);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[1], 1.000, 0.500, NOT_DA1);
+      $setuphold(posedge CLKA &&& DA_flag, posedge DA[0], 1.000, 0.500, NOT_DA0);
+      $setuphold(posedge CLKA &&& DA_flag, negedge DA[0], 1.000, 0.500, NOT_DA0);
+      $setuphold(posedge CLKA &&& cyc_flagA, posedge EMAA[2], 1.000, 0.500, NOT_EMAA2);
+      $setuphold(posedge CLKA &&& cyc_flagA, negedge EMAA[2], 1.000, 0.500, NOT_EMAA2);
+      $setuphold(posedge CLKA &&& cyc_flagA, posedge EMAA[1], 1.000, 0.500, NOT_EMAA1);
+      $setuphold(posedge CLKA &&& cyc_flagA, negedge EMAA[1], 1.000, 0.500, NOT_EMAA1);
+      $setuphold(posedge CLKA &&& cyc_flagA, posedge EMAA[0], 1.000, 0.500, NOT_EMAA0);
+      $setuphold(posedge CLKA &&& cyc_flagA, negedge EMAA[0], 1.000, 0.500, NOT_EMAA0);
+      $setuphold(posedge CLKA, posedge RETN, 1.000, 0.500, NOT_RETNA);
+      $setuphold(posedge CLKA, negedge RETN, 1.000, 0.500, NOT_RETNA);
+      $hold(posedge RETN, negedge CENA, 1.000, NOT_RETN);
+      $hold(posedge CENB, negedge RETN, 1.000, NOT_RETN);
+      $setuphold(posedge CLKB &&& CENB_flag, posedge CENB, 1.000, 0.500, NOT_CENB);
+      $setuphold(posedge CLKB &&& CENB_flag, negedge CENB, 1.000, 0.500, NOT_CENB);
+      $setuphold(posedge CLKB &&& flagB, posedge WENB, 1.000, 0.500, NOT_WENB);
+      $setuphold(posedge CLKB &&& flagB, negedge WENB, 1.000, 0.500, NOT_WENB);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[9], 1.000, 0.500, NOT_AB9);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[9], 1.000, 0.500, NOT_AB9);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[8], 1.000, 0.500, NOT_AB8);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[8], 1.000, 0.500, NOT_AB8);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[7], 1.000, 0.500, NOT_AB7);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[7], 1.000, 0.500, NOT_AB7);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[6], 1.000, 0.500, NOT_AB6);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[6], 1.000, 0.500, NOT_AB6);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[5], 1.000, 0.500, NOT_AB5);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[5], 1.000, 0.500, NOT_AB5);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[4], 1.000, 0.500, NOT_AB4);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[4], 1.000, 0.500, NOT_AB4);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[3], 1.000, 0.500, NOT_AB3);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[3], 1.000, 0.500, NOT_AB3);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[2], 1.000, 0.500, NOT_AB2);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[2], 1.000, 0.500, NOT_AB2);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[1], 1.000, 0.500, NOT_AB1);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[1], 1.000, 0.500, NOT_AB1);
+      $setuphold(posedge CLKB &&& flagB, posedge AB[0], 1.000, 0.500, NOT_AB0);
+      $setuphold(posedge CLKB &&& flagB, negedge AB[0], 1.000, 0.500, NOT_AB0);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[31], 1.000, 0.500, NOT_DB31);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[31], 1.000, 0.500, NOT_DB31);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[30], 1.000, 0.500, NOT_DB30);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[30], 1.000, 0.500, NOT_DB30);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[29], 1.000, 0.500, NOT_DB29);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[29], 1.000, 0.500, NOT_DB29);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[28], 1.000, 0.500, NOT_DB28);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[28], 1.000, 0.500, NOT_DB28);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[27], 1.000, 0.500, NOT_DB27);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[27], 1.000, 0.500, NOT_DB27);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[26], 1.000, 0.500, NOT_DB26);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[26], 1.000, 0.500, NOT_DB26);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[25], 1.000, 0.500, NOT_DB25);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[25], 1.000, 0.500, NOT_DB25);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[24], 1.000, 0.500, NOT_DB24);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[24], 1.000, 0.500, NOT_DB24);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[23], 1.000, 0.500, NOT_DB23);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[23], 1.000, 0.500, NOT_DB23);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[22], 1.000, 0.500, NOT_DB22);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[22], 1.000, 0.500, NOT_DB22);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[21], 1.000, 0.500, NOT_DB21);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[21], 1.000, 0.500, NOT_DB21);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[20], 1.000, 0.500, NOT_DB20);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[20], 1.000, 0.500, NOT_DB20);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[19], 1.000, 0.500, NOT_DB19);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[19], 1.000, 0.500, NOT_DB19);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[18], 1.000, 0.500, NOT_DB18);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[18], 1.000, 0.500, NOT_DB18);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[17], 1.000, 0.500, NOT_DB17);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[17], 1.000, 0.500, NOT_DB17);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[16], 1.000, 0.500, NOT_DB16);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[16], 1.000, 0.500, NOT_DB16);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[15], 1.000, 0.500, NOT_DB15);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[15], 1.000, 0.500, NOT_DB15);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[14], 1.000, 0.500, NOT_DB14);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[14], 1.000, 0.500, NOT_DB14);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[13], 1.000, 0.500, NOT_DB13);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[13], 1.000, 0.500, NOT_DB13);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[12], 1.000, 0.500, NOT_DB12);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[12], 1.000, 0.500, NOT_DB12);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[11], 1.000, 0.500, NOT_DB11);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[11], 1.000, 0.500, NOT_DB11);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[10], 1.000, 0.500, NOT_DB10);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[10], 1.000, 0.500, NOT_DB10);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[9], 1.000, 0.500, NOT_DB9);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[9], 1.000, 0.500, NOT_DB9);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[8], 1.000, 0.500, NOT_DB8);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[8], 1.000, 0.500, NOT_DB8);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[7], 1.000, 0.500, NOT_DB7);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[7], 1.000, 0.500, NOT_DB7);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[6], 1.000, 0.500, NOT_DB6);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[6], 1.000, 0.500, NOT_DB6);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[5], 1.000, 0.500, NOT_DB5);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[5], 1.000, 0.500, NOT_DB5);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[4], 1.000, 0.500, NOT_DB4);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[4], 1.000, 0.500, NOT_DB4);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[3], 1.000, 0.500, NOT_DB3);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[3], 1.000, 0.500, NOT_DB3);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[2], 1.000, 0.500, NOT_DB2);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[2], 1.000, 0.500, NOT_DB2);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[1], 1.000, 0.500, NOT_DB1);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[1], 1.000, 0.500, NOT_DB1);
+      $setuphold(posedge CLKB &&& DB_flag, posedge DB[0], 1.000, 0.500, NOT_DB0);
+      $setuphold(posedge CLKB &&& DB_flag, negedge DB[0], 1.000, 0.500, NOT_DB0);
+      $setuphold(posedge CLKB &&& cyc_flagB, posedge EMAB[2], 1.000, 0.500, NOT_EMAB2);
+      $setuphold(posedge CLKB &&& cyc_flagB, negedge EMAB[2], 1.000, 0.500, NOT_EMAB2);
+      $setuphold(posedge CLKB &&& cyc_flagB, posedge EMAB[1], 1.000, 0.500, NOT_EMAB1);
+      $setuphold(posedge CLKB &&& cyc_flagB, negedge EMAB[1], 1.000, 0.500, NOT_EMAB1);
+      $setuphold(posedge CLKB &&& cyc_flagB, posedge EMAB[0], 1.000, 0.500, NOT_EMAB0);
+      $setuphold(posedge CLKB &&& cyc_flagB, negedge EMAB[0], 1.000, 0.500, NOT_EMAB0);
+      $setuphold(posedge CLKB, posedge RETN, 1.000, 0.500, NOT_RETNB);
+      $setuphold(posedge CLKB, negedge RETN, 1.000, 0.500, NOT_RETNB);
+      $hold(posedge RETN, negedge CENB, 1.000, NOT_RETN);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq0andEMAA1eq0andEMAA0eq0, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq0andEMAA1eq0andEMAA0eq1, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq0andEMAA1eq1andEMAA0eq0, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq0andEMAA1eq1andEMAA0eq1, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq1andEMAA1eq0andEMAA0eq0, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq1andEMAA1eq0andEMAA0eq1, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq1andEMAA1eq1andEMAA0eq0, 3.000, NOT_CONTB);
+      $setup(posedge CLKA, posedge CLKB &&& contA_EMAA2eq1andEMAA1eq1andEMAA0eq1, 3.000, NOT_CONTB);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq0andEMAB1eq0andEMAB0eq0, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq0andEMAB1eq0andEMAB0eq1, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq0andEMAB1eq1andEMAB0eq0, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq0andEMAB1eq1andEMAB0eq1, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq1andEMAB1eq0andEMAB0eq0, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq1andEMAB1eq0andEMAB0eq1, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq1andEMAB1eq1andEMAB0eq0, 3.000, NOT_CONTA);
+      $setup(posedge CLKB, posedge CLKA &&& contB_EMAB2eq1andEMAB1eq1andEMAB0eq1, 3.000, NOT_CONTA);
 
-      $width(posedge CLK &&& cyc_flag, 1.000, 0, NOT_CLK_MINH);
-      $width(negedge CLK &&& cyc_flag, 1.000, 0, NOT_CLK_MINL);
+      $width(posedge CLKA &&& cyc_flagA, 1.000, 0, NOT_CLKA_MINH);
+      $width(negedge CLKA &&& cyc_flagA, 1.000, 0, NOT_CLKA_MINL);
 `ifdef NO_SDTC
-      $period(posedge CLK  &&& cyc_flag, 3.000, NOT_CLK_PER);
+      $period(posedge CLKA  &&& cyc_flagA, 3.000, NOT_CLKA_PER);
 `else
-      $period(posedge CLK &&& EMA2eq0andEMA1eq0andEMA0eq0, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq0andEMA1eq0andEMA0eq1, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq0andEMA1eq1andEMA0eq0, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq0andEMA1eq1andEMA0eq1, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq1andEMA1eq0andEMA0eq0, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq1andEMA1eq0andEMA0eq1, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq1andEMA1eq1andEMA0eq0, 3.000, NOT_CLK_PER);
-      $period(posedge CLK &&& EMA2eq1andEMA1eq1andEMA0eq1, 3.000, NOT_CLK_PER);
+      $period(posedge CLKA &&& EMAA2eq0andEMAA1eq0andEMAA0eq0, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq0andEMAA1eq0andEMAA0eq1, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq0andEMAA1eq1andEMAA0eq0, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq0andEMAA1eq1andEMAA0eq1, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq1andEMAA1eq0andEMAA0eq0, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq1andEMAA1eq0andEMAA0eq1, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq1andEMAA1eq1andEMAA0eq0, 3.000, NOT_CLKA_PER);
+      $period(posedge CLKA &&& EMAA2eq1andEMAA1eq1andEMAA0eq1, 3.000, NOT_CLKA_PER);
 `endif
 
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[31]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[30]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[29]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[28]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[27]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[26]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[25]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[24]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[23]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[22]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[21]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[20]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[19]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[18]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[17]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[16]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[15]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[14]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[13]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[12]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[11]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[10]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[9]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[8]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[7]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[6]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[5]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[4]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[3]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[2]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[1]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b0) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b0) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b0))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
-      if ((EMA[2] == 1'b1) && (EMA[1] == 1'b1) && (EMA[0] == 1'b1))
-        (posedge CLK => (Q[0]:1'b0))=(1.000, 1.000);
+      $width(posedge CLKB &&& cyc_flagB, 1.000, 0, NOT_CLKB_MINH);
+      $width(negedge CLKB &&& cyc_flagB, 1.000, 0, NOT_CLKB_MINL);
+`ifdef NO_SDTC
+      $period(posedge CLKB  &&& cyc_flagB, 3.000, NOT_CLKB_PER);
+`else
+      $period(posedge CLKB &&& EMAB2eq0andEMAB1eq0andEMAB0eq0, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq0andEMAB1eq0andEMAB0eq1, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq0andEMAB1eq1andEMAB0eq0, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq0andEMAB1eq1andEMAB0eq1, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq1andEMAB1eq0andEMAB0eq0, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq1andEMAB1eq0andEMAB0eq1, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq1andEMAB1eq1andEMAB0eq0, 3.000, NOT_CLKB_PER);
+      $period(posedge CLKB &&& EMAB2eq1andEMAB1eq1andEMAB0eq1, 3.000, NOT_CLKB_PER);
+`endif
 
-      (RETN => (Q[31] +: 1'b0)) = (1.000);
-      (RETN => (Q[30] +: 1'b0)) = (1.000);
-      (RETN => (Q[29] +: 1'b0)) = (1.000);
-      (RETN => (Q[28] +: 1'b0)) = (1.000);
-      (RETN => (Q[27] +: 1'b0)) = (1.000);
-      (RETN => (Q[26] +: 1'b0)) = (1.000);
-      (RETN => (Q[25] +: 1'b0)) = (1.000);
-      (RETN => (Q[24] +: 1'b0)) = (1.000);
-      (RETN => (Q[23] +: 1'b0)) = (1.000);
-      (RETN => (Q[22] +: 1'b0)) = (1.000);
-      (RETN => (Q[21] +: 1'b0)) = (1.000);
-      (RETN => (Q[20] +: 1'b0)) = (1.000);
-      (RETN => (Q[19] +: 1'b0)) = (1.000);
-      (RETN => (Q[18] +: 1'b0)) = (1.000);
-      (RETN => (Q[17] +: 1'b0)) = (1.000);
-      (RETN => (Q[16] +: 1'b0)) = (1.000);
-      (RETN => (Q[15] +: 1'b0)) = (1.000);
-      (RETN => (Q[14] +: 1'b0)) = (1.000);
-      (RETN => (Q[13] +: 1'b0)) = (1.000);
-      (RETN => (Q[12] +: 1'b0)) = (1.000);
-      (RETN => (Q[11] +: 1'b0)) = (1.000);
-      (RETN => (Q[10] +: 1'b0)) = (1.000);
-      (RETN => (Q[9] +: 1'b0)) = (1.000);
-      (RETN => (Q[8] +: 1'b0)) = (1.000);
-      (RETN => (Q[7] +: 1'b0)) = (1.000);
-      (RETN => (Q[6] +: 1'b0)) = (1.000);
-      (RETN => (Q[5] +: 1'b0)) = (1.000);
-      (RETN => (Q[4] +: 1'b0)) = (1.000);
-      (RETN => (Q[3] +: 1'b0)) = (1.000);
-      (RETN => (Q[2] +: 1'b0)) = (1.000);
-      (RETN => (Q[1] +: 1'b0)) = (1.000);
-      (RETN => (Q[0] +: 1'b0)) = (1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[31]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[30]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[29]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[28]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[27]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[26]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[25]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[24]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[23]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[22]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[21]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[20]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[19]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[18]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[17]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[16]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[15]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[14]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[13]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[12]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[11]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[10]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[9]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[8]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[7]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[6]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[5]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[4]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[3]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[2]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[1]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b0) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b0) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b0))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+      if ((EMAA[2] == 1'b1) && (EMAA[1] == 1'b1) && (EMAA[0] == 1'b1))
+        (posedge CLKA => (QA[0]:1'b0))=(1.000, 1.000);
+
+      (RETN => (QA[31] +: 1'b0)) = (1.000);
+      (RETN => (QA[30] +: 1'b0)) = (1.000);
+      (RETN => (QA[29] +: 1'b0)) = (1.000);
+      (RETN => (QA[28] +: 1'b0)) = (1.000);
+      (RETN => (QA[27] +: 1'b0)) = (1.000);
+      (RETN => (QA[26] +: 1'b0)) = (1.000);
+      (RETN => (QA[25] +: 1'b0)) = (1.000);
+      (RETN => (QA[24] +: 1'b0)) = (1.000);
+      (RETN => (QA[23] +: 1'b0)) = (1.000);
+      (RETN => (QA[22] +: 1'b0)) = (1.000);
+      (RETN => (QA[21] +: 1'b0)) = (1.000);
+      (RETN => (QA[20] +: 1'b0)) = (1.000);
+      (RETN => (QA[19] +: 1'b0)) = (1.000);
+      (RETN => (QA[18] +: 1'b0)) = (1.000);
+      (RETN => (QA[17] +: 1'b0)) = (1.000);
+      (RETN => (QA[16] +: 1'b0)) = (1.000);
+      (RETN => (QA[15] +: 1'b0)) = (1.000);
+      (RETN => (QA[14] +: 1'b0)) = (1.000);
+      (RETN => (QA[13] +: 1'b0)) = (1.000);
+      (RETN => (QA[12] +: 1'b0)) = (1.000);
+      (RETN => (QA[11] +: 1'b0)) = (1.000);
+      (RETN => (QA[10] +: 1'b0)) = (1.000);
+      (RETN => (QA[9] +: 1'b0)) = (1.000);
+      (RETN => (QA[8] +: 1'b0)) = (1.000);
+      (RETN => (QA[7] +: 1'b0)) = (1.000);
+      (RETN => (QA[6] +: 1'b0)) = (1.000);
+      (RETN => (QA[5] +: 1'b0)) = (1.000);
+      (RETN => (QA[4] +: 1'b0)) = (1.000);
+      (RETN => (QA[3] +: 1'b0)) = (1.000);
+      (RETN => (QA[2] +: 1'b0)) = (1.000);
+      (RETN => (QA[1] +: 1'b0)) = (1.000);
+      (RETN => (QA[0] +: 1'b0)) = (1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[31]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[30]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[29]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[28]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[27]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[26]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[25]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[24]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[23]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[22]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[21]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[20]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[19]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[18]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[17]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[16]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[15]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[14]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[13]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[12]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[11]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[10]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[9]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[8]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[7]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[6]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[5]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[4]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[3]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[2]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[1]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b0) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b0) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b0))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+      if ((EMAB[2] == 1'b1) && (EMAB[1] == 1'b1) && (EMAB[0] == 1'b1))
+        (posedge CLKB => (QB[0]:1'b0))=(1.000, 1.000);
+
+      (RETN => (QB[31] +: 1'b0)) = (1.000);
+      (RETN => (QB[30] +: 1'b0)) = (1.000);
+      (RETN => (QB[29] +: 1'b0)) = (1.000);
+      (RETN => (QB[28] +: 1'b0)) = (1.000);
+      (RETN => (QB[27] +: 1'b0)) = (1.000);
+      (RETN => (QB[26] +: 1'b0)) = (1.000);
+      (RETN => (QB[25] +: 1'b0)) = (1.000);
+      (RETN => (QB[24] +: 1'b0)) = (1.000);
+      (RETN => (QB[23] +: 1'b0)) = (1.000);
+      (RETN => (QB[22] +: 1'b0)) = (1.000);
+      (RETN => (QB[21] +: 1'b0)) = (1.000);
+      (RETN => (QB[20] +: 1'b0)) = (1.000);
+      (RETN => (QB[19] +: 1'b0)) = (1.000);
+      (RETN => (QB[18] +: 1'b0)) = (1.000);
+      (RETN => (QB[17] +: 1'b0)) = (1.000);
+      (RETN => (QB[16] +: 1'b0)) = (1.000);
+      (RETN => (QB[15] +: 1'b0)) = (1.000);
+      (RETN => (QB[14] +: 1'b0)) = (1.000);
+      (RETN => (QB[13] +: 1'b0)) = (1.000);
+      (RETN => (QB[12] +: 1'b0)) = (1.000);
+      (RETN => (QB[11] +: 1'b0)) = (1.000);
+      (RETN => (QB[10] +: 1'b0)) = (1.000);
+      (RETN => (QB[9] +: 1'b0)) = (1.000);
+      (RETN => (QB[8] +: 1'b0)) = (1.000);
+      (RETN => (QB[7] +: 1'b0)) = (1.000);
+      (RETN => (QB[6] +: 1'b0)) = (1.000);
+      (RETN => (QB[5] +: 1'b0)) = (1.000);
+      (RETN => (QB[4] +: 1'b0)) = (1.000);
+      (RETN => (QB[3] +: 1'b0)) = (1.000);
+      (RETN => (QB[2] +: 1'b0)) = (1.000);
+      (RETN => (QB[1] +: 1'b0)) = (1.000);
+      (RETN => (QB[0] +: 1'b0)) = (1.000);
   endspecify
 
 endmodule
