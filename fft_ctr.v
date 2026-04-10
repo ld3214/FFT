@@ -109,16 +109,16 @@ module fft_ctr #(
     wire [WIDTH-1:0] mult_m_re, mult_m_im;
 
     Butterfly #(.WIDTH(WIDTH), .RH(0)) u_bfy (
-        .x0_re (reg_A[WIDTH-1:0]),       .x0_im (reg_A[WIDTH*2-1:WIDTH]),
-        .x1_re (reg_B[WIDTH-1:0]),       .x1_im (reg_B[WIDTH*2-1:WIDTH]),
+        .x0_re (reg_A[WIDTH*2-1:WIDTH]),  .x0_im (reg_A[WIDTH-1:0]),
+        .x1_re (reg_B[WIDTH*2-1:WIDTH]),  .x1_im (reg_B[WIDTH-1:0]),
         .y0_re (bfy_y0_re),              .y0_im (bfy_y0_im),
         .y1_re (bfy_y1_re),              .y1_im (bfy_y1_im)
     );
 
     Multiply #(.WIDTH(WIDTH)) u_mult (
-        .a_re  (reg_Y1_pre[WIDTH-1:0]),  .a_im  (reg_Y1_pre[WIDTH*2-1:WIDTH]),
-        .b_re  (reg_W[WIDTH-1:0]),       .b_im  (reg_W[WIDTH*2-1:WIDTH]),
-        .m_re  (mult_m_re),              .m_im  (mult_m_im)
+        .a_re  (reg_Y1_pre[WIDTH*2-1:WIDTH]),  .a_im  (reg_Y1_pre[WIDTH-1:0]),
+        .b_re  (reg_W[WIDTH*2-1:WIDTH]),       .b_im  (reg_W[WIDTH-1:0]),
+        .m_re  (mult_m_re),                    .m_im  (mult_m_im)
     );
 
     // ---------------------------------------------------------
@@ -239,9 +239,9 @@ module fft_ctr #(
                 end
 
                 S_CALC: begin
-                    // Butterfly 组合输出 → 锁存
-                    reg_Y0     <= {bfy_y0_im, bfy_y0_re};
-                    reg_Y1_pre <= {bfy_y1_im, bfy_y1_re};
+                    // Butterfly 组合输出 → 锁存  {re, im}
+                    reg_Y0     <= {bfy_y0_re, bfy_y0_im};
+                    reg_Y1_pre <= {bfy_y1_re, bfy_y1_im};
                 end
 
                 S_WR: begin
@@ -250,7 +250,7 @@ module fft_ctr #(
                     wr_addr_a <= A_idx;
                     wr_addr_b <= B_idx;
                     wr_data_a <= reg_Y0;                       // Y0 = (A+B)/2
-                    wr_data_b <= {mult_m_im, mult_m_re};       // Y1 = (A-B)*W
+                    wr_data_b <= {mult_m_re, mult_m_im};       // Y1 = (A-B)*W
                     wr_en     <= 1'b1;
 
                     if (last_bfly && last_stage)

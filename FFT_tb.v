@@ -70,7 +70,26 @@ module FFT_tb;
     // -------------------------------------------------------
     reg [15:0]         input_mem  [0:N-1];
     reg [31:0]         twiddle_mem[0:TW_NUM-1];
-    reg [WIDTH*2-1:0]  result_mem [0:N-1];
+    reg [WIDTH*2-1:0]  result_mem [0:N-1];   // bit-reversed order from SRAM
+    reg [WIDTH*2-1:0]  result_nat [0:N-1];   // natural order after reorder
+
+    // -------------------------------------------------------
+    //  Bit-reverse function (10-bit for 1024-point)
+    // -------------------------------------------------------
+    function [9:0] bit_reverse;
+        input [9:0] idx;
+        input [3:0] num_bits;  // log2(N)
+        integer b;
+        reg [9:0] tmp;
+        begin
+            tmp = 10'd0;
+            for (b = 0; b < 10; b = b + 1) begin
+                if (b < num_bits)
+                    tmp[num_bits - 1 - b] = idx[b];
+            end
+            bit_reverse = tmp;
+        end
+    endfunction
 
     // -------------------------------------------------------
     //  Load hex files
@@ -108,7 +127,7 @@ module FFT_tb;
         // ====================================================
         //  Phase 1: Load input data into bank0
         //           input 只有实部, 虚部补零
-        //           SRAM 格式: {im[15:0], re[15:0]}
+        //           SRAM 格式: {re[31:16], im[15:0]}
         // ====================================================
         $display("[%0t] Loading input data ...", $time);
         for (i = 0; i < N; i = i + 1) begin
@@ -116,7 +135,7 @@ module FFT_tb;
             ext_d_en   <= 1'b1;
             ext_d_wen  <= 1'b1;            // write
             ext_d_addr <= i[9:0];
-            ext_d_din  <= {16'h0000, input_mem[i]};  // {im=0, re=data}
+            ext_d_din  <= {input_mem[i], 16'h0000};  // {re=data, im=0}
         end
         @(posedge clk);
         ext_d_en  <= 1'b0;
@@ -125,8 +144,7 @@ module FFT_tb;
         // ====================================================
         //  Phase 2: Load twiddle factors into tw_sram
         //           文件格式: {re[31:16], im[15:0]}
-        //           SRAM 格式: {im[31:16], re[15:0]}
-        //           交换高低 16-bit
+        //           SRAM 格式: {re[31:16], im[15:0]}  直接写入
         // ====================================================
         $display("[%0t] Loading twiddle factors ...", $time);
         for (i = 0; i < TW_NUM; i = i + 1) begin
@@ -134,7 +152,7 @@ module FFT_tb;
             ext_tw_en   <= 1'b1;
             ext_tw_wen  <= 1'b1;
             ext_tw_addr <= i[8:0];
-            ext_tw_din  <= {twiddle_mem[i][15:0], twiddle_mem[i][31:16]};  // swap → {im, re}
+            ext_tw_din  <= twiddle_mem[i];  // 直接写入 {re, im}
         end
         @(posedge clk);
         ext_tw_en  <= 1'b0;
@@ -180,14 +198,20 @@ module FFT_tb;
         end
 
         // ====================================================
-        //  Phase 6: Dump results
+        //  Phase 6: Bit-reverse reorder + Dump results
+        //  DIF FFT 输出为比特反转顺序, 需要重排
         // ====================================================
-        $display("========== FFT Results ==========");
+        $display("Reordering bit-reversed output to natural order ...");
+        for (i = 0; i < N; i = i + 1) begin
+            result_nat[bit_reverse(i[9:0], 4'd10)] = result_mem[i];
+        end
+
+        $display("========== FFT Results (natural order) ==========");
         for (i = 0; i < N; i = i + 1) begin
             $display("X[%4d] = re: %6d, im: %6d",
                      i,
-                     $signed(result_mem[i][WIDTH-1:0]),
-                     $signed(result_mem[i][WIDTH*2-1:WIDTH]));
+                     $signed(result_nat[i][WIDTH*2-1:WIDTH]),
+                     $signed(result_nat[i][WIDTH-1:0]));
         end
 
         // Save to file
@@ -196,8 +220,8 @@ module FFT_tb;
             fd = $fopen("fft_output.txt", "w");
             for (i = 0; i < N; i = i + 1) begin
                 $fwrite(fd, "%04h%04h\n",
-                        result_mem[i][WIDTH*2-1:WIDTH],
-                        result_mem[i][WIDTH-1:0]);
+                        result_nat[i][WIDTH*2-1:WIDTH],
+                        result_nat[i][WIDTH-1:0]);
             end
             $fclose(fd);
             $display("Results saved to fft_output.txt");
