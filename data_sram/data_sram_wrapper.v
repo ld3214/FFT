@@ -3,7 +3,7 @@
 `define DELAY #1
 module sram_wrapper #(
   parameter DW = 32,
-  parameter AW = 10
+  parameter AW = 11
 ) (
   input  wire          clk ,
   input  wire          cen , // Chip Enable (active low)
