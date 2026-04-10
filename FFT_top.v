@@ -89,6 +89,21 @@ module FFT_top #(
     wire [9:0]         fft_tw_addr;
     wire [WIDTH*2-1:0] fft_tw_rd_data;
 
+    // =========================================================
+    //  Write-side bank_sel (delayed 1 cycle)
+    //
+    //  fft_bank_sel = stage[0] 在 S_WR posedge 与 stage 同时翻转,
+    //  但写数据要到下一个 posedge 才被 SRAM 锁存.
+    //  用 1 拍延迟保证写侧 mux 在 SRAM 锁存前保持旧 bank_sel.
+    // =========================================================
+    reg wr_bank_sel;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            wr_bank_sel <= 1'b0;
+        else
+            wr_bank_sel <= fft_bank_sel;
+    end
+
     fft_ctr #(.WIDTH(WIDTH)) u_fft_ctr (
         .clk             (clk),
         .rst_n           (rst_n),
@@ -127,18 +142,23 @@ module FFT_top #(
     // Bank0 Port A mux
     always @(*) begin
         if (r_fft_busy) begin
-            if (!fft_bank_sel) begin
-                // bank_sel=0: read A from bank0
-                bank0_cena  = ~fft_rd_en;
+            if (!fft_bank_sel && fft_rd_en) begin
+                // read A from bank0 (bank_sel=0)
+                bank0_cena  = 1'b0;
                 bank0_wena  = 1'b1;
                 bank0_addra = fft_rd_addr_a;
                 bank0_dina  = {(WIDTH*2){1'b0}};
-            end else begin
-                // bank_sel=1: write Y0 to bank0
-                bank0_cena  = ~fft_wr_en;
-                bank0_wena  = ~fft_wr_en;
+            end else if (wr_bank_sel && fft_wr_en) begin
+                // write Y0 to bank0 (wr_bank_sel=1)
+                bank0_cena  = 1'b0;
+                bank0_wena  = 1'b0;
                 bank0_addra = fft_wr_addr_a;
                 bank0_dina  = fft_wr_data_a;
+            end else begin
+                bank0_cena  = 1'b1;
+                bank0_wena  = 1'b1;
+                bank0_addra = 10'd0;
+                bank0_dina  = {(WIDTH*2){1'b0}};
             end
         end else if (ext_d_en && ext_d_wen) begin
             // External write to bank0 (load input data)
@@ -163,18 +183,23 @@ module FFT_top #(
     // Bank0 Port B mux
     always @(*) begin
         if (r_fft_busy) begin
-            if (!fft_bank_sel) begin
-                // bank_sel=0: read B from bank0
-                bank0_cenb  = ~fft_rd_en;
+            if (!fft_bank_sel && fft_rd_en) begin
+                // read B from bank0 (bank_sel=0)
+                bank0_cenb  = 1'b0;
                 bank0_wenb  = 1'b1;
                 bank0_addrb = fft_rd_addr_b;
                 bank0_dinb  = {(WIDTH*2){1'b0}};
-            end else begin
-                // bank_sel=1: write Y1 to bank0
-                bank0_cenb  = ~fft_wr_en;
-                bank0_wenb  = ~fft_wr_en;
+            end else if (wr_bank_sel && fft_wr_en) begin
+                // write Y1 to bank0 (wr_bank_sel=1)
+                bank0_cenb  = 1'b0;
+                bank0_wenb  = 1'b0;
                 bank0_addrb = fft_wr_addr_b;
                 bank0_dinb  = fft_wr_data_b;
+            end else begin
+                bank0_cenb  = 1'b1;
+                bank0_wenb  = 1'b1;
+                bank0_addrb = 10'd0;
+                bank0_dinb  = {(WIDTH*2){1'b0}};
             end
         end else begin
             bank0_cenb  = 1'b1;
@@ -215,18 +240,23 @@ module FFT_top #(
     // Bank1 Port A mux
     always @(*) begin
         if (r_fft_busy) begin
-            if (fft_bank_sel) begin
-                // bank_sel=1: read A from bank1
-                bank1_cena  = ~fft_rd_en;
+            if (fft_bank_sel && fft_rd_en) begin
+                // read A from bank1 (bank_sel=1)
+                bank1_cena  = 1'b0;
                 bank1_wena  = 1'b1;
                 bank1_addra = fft_rd_addr_a;
                 bank1_dina  = {(WIDTH*2){1'b0}};
-            end else begin
-                // bank_sel=0: write Y0 to bank1
-                bank1_cena  = ~fft_wr_en;
-                bank1_wena  = ~fft_wr_en;
+            end else if (!wr_bank_sel && fft_wr_en) begin
+                // write Y0 to bank1 (wr_bank_sel=0)
+                bank1_cena  = 1'b0;
+                bank1_wena  = 1'b0;
                 bank1_addra = fft_wr_addr_a;
                 bank1_dina  = fft_wr_data_a;
+            end else begin
+                bank1_cena  = 1'b1;
+                bank1_wena  = 1'b1;
+                bank1_addra = 10'd0;
+                bank1_dina  = {(WIDTH*2){1'b0}};
             end
         end else if (ext_d_en && !ext_d_wen && r_result_bank) begin
             // External read from bank1 (result in bank1)
@@ -245,18 +275,23 @@ module FFT_top #(
     // Bank1 Port B mux
     always @(*) begin
         if (r_fft_busy) begin
-            if (fft_bank_sel) begin
-                // bank_sel=1: read B from bank1
-                bank1_cenb  = ~fft_rd_en;
+            if (fft_bank_sel && fft_rd_en) begin
+                // read B from bank1 (bank_sel=1)
+                bank1_cenb  = 1'b0;
                 bank1_wenb  = 1'b1;
                 bank1_addrb = fft_rd_addr_b;
                 bank1_dinb  = {(WIDTH*2){1'b0}};
-            end else begin
-                // bank_sel=0: write Y1 to bank1
-                bank1_cenb  = ~fft_wr_en;
-                bank1_wenb  = ~fft_wr_en;
+            end else if (!wr_bank_sel && fft_wr_en) begin
+                // write Y1 to bank1 (wr_bank_sel=0)
+                bank1_cenb  = 1'b0;
+                bank1_wenb  = 1'b0;
                 bank1_addrb = fft_wr_addr_b;
                 bank1_dinb  = fft_wr_data_b;
+            end else begin
+                bank1_cenb  = 1'b1;
+                bank1_wenb  = 1'b1;
+                bank1_addrb = 10'd0;
+                bank1_dinb  = {(WIDTH*2){1'b0}};
             end
         end else begin
             bank1_cenb  = 1'b1;

@@ -160,38 +160,24 @@ module FFT_tb;
 
         // ====================================================
         //  Phase 5: Read results
+        //           SRAM read latency: addr set → 2 cycles later dout valid
+        //           (1 cycle for registered addr + 1 cycle SRAM latency)
         // ====================================================
         $display("[%0t] Reading results ...", $time);
-        for (i = 0; i < N; i = i + 1) begin
+        for (i = 0; i < N + 2; i = i + 1) begin
             @(posedge clk);
-            ext_d_en   <= 1'b1;
-            ext_d_wen  <= 1'b0;            // read
-            ext_d_addr <= i[9:0];
-        end
-        @(posedge clk);
-        ext_d_en <= 1'b0;
-
-        // SRAM has 1-cycle read latency → result appears 2 cycles after addr
-        // Capture results (offset by read pipeline)
-        repeat(3) @(posedge clk);
-
-        // Re-read and capture
-        for (i = 0; i < N; i = i + 1) begin
-            @(posedge clk);
-            ext_d_en   <= 1'b1;
-            ext_d_wen  <= 1'b0;
-            ext_d_addr <= i[9:0];
-            // Capture previous result (2-cycle latency)
+            if (i < N) begin
+                ext_d_en   <= 1'b1;
+                ext_d_wen  <= 1'b0;
+                ext_d_addr <= i[9:0];
+            end else begin
+                ext_d_en   <= 1'b0;
+            end
+            // Capture result from 2 cycles ago
             if (i >= 2) begin
                 result_mem[i-2] = ext_d_dout;
             end
         end
-        @(posedge clk);
-        result_mem[N-2] = ext_d_dout;
-        @(posedge clk);
-        result_mem[N-1] = ext_d_dout;
-        @(posedge clk);
-        ext_d_en <= 1'b0;
 
         // ====================================================
         //  Phase 6: Dump results
