@@ -15,7 +15,7 @@
 //      Verilog model for Synchronous Dual-Port Ram
 //
 //      Instance Name:              data_sram
-//      Words:                      1024
+//      Words:                      512
 //      Bits:                       32
 //      Mux:                        16
 //      Drive:                      6
@@ -26,7 +26,7 @@
 //      Redundant Columns:          0
 //      Test Muxes                  Off
 //
-//      Creation Date:  Fri Apr 10 12:15:13 2026
+//      Creation Date:  Fri Apr 10 15:14:04 2026
 //      Version: 	r0p1-00eac0
 //
 //      Modeling Assumptions: This model supports full gate level simulation
@@ -74,10 +74,10 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 1024;
+  parameter WORDS = 512;
   parameter MUX = 16;
   parameter MEM_WIDTH = 512; // redun block size 4, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 64;
+  parameter MEM_HEIGHT = 32;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
@@ -86,12 +86,12 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   input  CLKA;
   input  CENA;
   input  WENA;
-  input [9:0] AA;
+  input [8:0] AA;
   input [31:0] DA;
   input  CLKB;
   input  CENB;
   input  WENB;
-  input [9:0] AB;
+  input [8:0] AB;
   input [31:0] DB;
   input [2:0] EMAA;
   input [2:0] EMAB;
@@ -103,7 +103,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:63];
+  reg [511:0] mem [0:31];
   reg [511:0] row;
   reg LAST_CLKA;
   reg [511:0] data_out;
@@ -131,8 +131,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   reg  CENA_int;
   wire  WENA_;
   reg  WENA_int;
-  wire [9:0] AA_;
-  reg [9:0] AA_int;
+  wire [8:0] AA_;
+  reg [8:0] AA_int;
   wire [31:0] DA_;
   reg [31:0] DA_int;
  wire  CLKB_;
@@ -140,8 +140,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   reg  CENB_int;
   wire  WENB_;
   reg  WENB_int;
-  wire [9:0] AB_;
-  reg [9:0] AB_int;
+  wire [8:0] AB_;
+  reg [8:0] AB_int;
   wire [31:0] DB_;
   reg [31:0] DB_int;
   wire [2:0] EMAA_;
@@ -227,7 +227,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   assign AA_[6] = AA[6];
   assign AA_[7] = AA[7];
   assign AA_[8] = AA[8];
-  assign AA_[9] = AA[9];
   assign DA_[0] = DA[0];
   assign DA_[1] = DA[1];
   assign DA_[2] = DA[2];
@@ -272,7 +271,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   assign AB_[6] = AB[6];
   assign AB_[7] = AB[7];
   assign AB_[8] = AB[8];
-  assign AB_[9] = AB[9];
   assign DB_[0] = DB[0];
   assign DB_[1] = DB[1];
   assign DB_[2] = DB[2];
@@ -363,7 +361,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
     end else if (CENA_int === 1'b0) begin
       mux_address = (AA_int & 4'b1111);
       row_address = (AA_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 32)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -415,7 +413,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QA_int = {32{1'b0}};
       CENA_int = 1'b0;
       WENA_int = 1'b0;
-      AA_int = {10{1'b0}};
+      AA_int = {9{1'b0}};
       DA_int = {32{1'b0}};
       EMAA_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -423,7 +421,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QA_int = {32{1'bx}};
       CENA_int = 1'bx;
       WENA_int = 1'bx;
-      AA_int = {10{1'bx}};
+      AA_int = {9{1'bx}};
       DA_int = {32{1'bx}};
       EMAA_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -492,7 +490,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
     end else if (CENB_int === 1'b0) begin
       mux_address = (AB_int & 4'b1111);
       row_address = (AB_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 32)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -544,7 +542,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QB_int = {32{1'b0}};
       CENB_int = 1'b0;
       WENB_int = 1'b0;
-      AB_int = {10{1'b0}};
+      AB_int = {9{1'b0}};
       DB_int = {32{1'b0}};
       EMAB_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -552,7 +550,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QB_int = {32{1'bx}};
       CENB_int = 1'bx;
       WENB_int = 1'bx;
-      AB_int = {10{1'bx}};
+      AB_int = {9{1'bx}};
       DB_int = {32{1'bx}};
       EMAB_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -600,8 +598,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
 
 
   function is_contention;
-    input [9:0] aa;
-    input [9:0] ab;
+    input [8:0] aa;
+    input [8:0] ab;
     input  wena;
     input  wenb;
     reg result;
@@ -632,10 +630,10 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
 `endif
 
   parameter BITS = 32;
-  parameter WORDS = 1024;
+  parameter WORDS = 512;
   parameter MUX = 16;
   parameter MEM_WIDTH = 512; // redun block size 4, 256 on left, 256 on right
-  parameter MEM_HEIGHT = 64;
+  parameter MEM_HEIGHT = 32;
   parameter WP_SIZE = 32 ;
   parameter UPM_WIDTH = 3;
 
@@ -644,12 +642,12 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   input  CLKA;
   input  CENA;
   input  WENA;
-  input [9:0] AA;
+  input [8:0] AA;
   input [31:0] DA;
   input  CLKB;
   input  CENB;
   input  WENB;
-  input [9:0] AB;
+  input [8:0] AB;
   input [31:0] DB;
   input [2:0] EMAA;
   input [2:0] EMAB;
@@ -661,7 +659,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
 
   integer row_address;
   integer mux_address;
-  reg [511:0] mem [0:63];
+  reg [511:0] mem [0:31];
   reg [511:0] row;
   reg LAST_CLKA;
   reg [511:0] data_out;
@@ -681,18 +679,18 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   initial cont_flag1_int = 1'b0;
 
   reg NOT_AA0, NOT_AA1, NOT_AA2, NOT_AA3, NOT_AA4, NOT_AA5, NOT_AA6, NOT_AA7, NOT_AA8;
-  reg NOT_AA9, NOT_AB0, NOT_AB1, NOT_AB2, NOT_AB3, NOT_AB4, NOT_AB5, NOT_AB6, NOT_AB7;
-  reg NOT_AB8, NOT_AB9, NOT_CENA, NOT_CENB, NOT_CLKA_MINH, NOT_CLKA_MINL, NOT_CLKA_PER;
-  reg NOT_CLKB_MINH, NOT_CLKB_MINL, NOT_CLKB_PER, NOT_CONTA, NOT_CONTB, NOT_DA0, NOT_DA1;
-  reg NOT_DA10, NOT_DA11, NOT_DA12, NOT_DA13, NOT_DA14, NOT_DA15, NOT_DA16, NOT_DA17;
-  reg NOT_DA18, NOT_DA19, NOT_DA2, NOT_DA20, NOT_DA21, NOT_DA22, NOT_DA23, NOT_DA24;
-  reg NOT_DA25, NOT_DA26, NOT_DA27, NOT_DA28, NOT_DA29, NOT_DA3, NOT_DA30, NOT_DA31;
-  reg NOT_DA4, NOT_DA5, NOT_DA6, NOT_DA7, NOT_DA8, NOT_DA9, NOT_DB0, NOT_DB1, NOT_DB10;
-  reg NOT_DB11, NOT_DB12, NOT_DB13, NOT_DB14, NOT_DB15, NOT_DB16, NOT_DB17, NOT_DB18;
-  reg NOT_DB19, NOT_DB2, NOT_DB20, NOT_DB21, NOT_DB22, NOT_DB23, NOT_DB24, NOT_DB25;
-  reg NOT_DB26, NOT_DB27, NOT_DB28, NOT_DB29, NOT_DB3, NOT_DB30, NOT_DB31, NOT_DB4;
-  reg NOT_DB5, NOT_DB6, NOT_DB7, NOT_DB8, NOT_DB9, NOT_EMAA0, NOT_EMAA1, NOT_EMAA2;
-  reg NOT_EMAB0, NOT_EMAB1, NOT_EMAB2, NOT_RETN, NOT_RETNA, NOT_RETNB, NOT_WENA, NOT_WENB;
+  reg NOT_AB0, NOT_AB1, NOT_AB2, NOT_AB3, NOT_AB4, NOT_AB5, NOT_AB6, NOT_AB7, NOT_AB8;
+  reg NOT_CENA, NOT_CENB, NOT_CLKA_MINH, NOT_CLKA_MINL, NOT_CLKA_PER, NOT_CLKB_MINH;
+  reg NOT_CLKB_MINL, NOT_CLKB_PER, NOT_CONTA, NOT_CONTB, NOT_DA0, NOT_DA1, NOT_DA10;
+  reg NOT_DA11, NOT_DA12, NOT_DA13, NOT_DA14, NOT_DA15, NOT_DA16, NOT_DA17, NOT_DA18;
+  reg NOT_DA19, NOT_DA2, NOT_DA20, NOT_DA21, NOT_DA22, NOT_DA23, NOT_DA24, NOT_DA25;
+  reg NOT_DA26, NOT_DA27, NOT_DA28, NOT_DA29, NOT_DA3, NOT_DA30, NOT_DA31, NOT_DA4;
+  reg NOT_DA5, NOT_DA6, NOT_DA7, NOT_DA8, NOT_DA9, NOT_DB0, NOT_DB1, NOT_DB10, NOT_DB11;
+  reg NOT_DB12, NOT_DB13, NOT_DB14, NOT_DB15, NOT_DB16, NOT_DB17, NOT_DB18, NOT_DB19;
+  reg NOT_DB2, NOT_DB20, NOT_DB21, NOT_DB22, NOT_DB23, NOT_DB24, NOT_DB25, NOT_DB26;
+  reg NOT_DB27, NOT_DB28, NOT_DB29, NOT_DB3, NOT_DB30, NOT_DB31, NOT_DB4, NOT_DB5;
+  reg NOT_DB6, NOT_DB7, NOT_DB8, NOT_DB9, NOT_EMAA0, NOT_EMAA1, NOT_EMAA2, NOT_EMAB0;
+  reg NOT_EMAB1, NOT_EMAB2, NOT_RETN, NOT_RETNA, NOT_RETNB, NOT_WENA, NOT_WENB;
   reg clk0_int;
   reg clk1_int;
   reg CRENA_legal;
@@ -707,8 +705,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   reg  CENA_int;
   wire  WENA_;
   reg  WENA_int;
-  wire [9:0] AA_;
-  reg [9:0] AA_int;
+  wire [8:0] AA_;
+  reg [8:0] AA_int;
   wire [31:0] DA_;
   reg [31:0] DA_int;
  wire  CLKB_;
@@ -716,8 +714,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   reg  CENB_int;
   wire  WENB_;
   reg  WENB_int;
-  wire [9:0] AB_;
-  reg [9:0] AB_int;
+  wire [8:0] AB_;
+  reg [8:0] AB_int;
   wire [31:0] DB_;
   reg [31:0] DB_int;
   wire [2:0] EMAA_;
@@ -803,91 +801,89 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   buf B73(AA_[6], AA[6]);
   buf B74(AA_[7], AA[7]);
   buf B75(AA_[8], AA[8]);
-  buf B76(AA_[9], AA[9]);
-  buf B77(DA_[0], DA[0]);
-  buf B78(DA_[1], DA[1]);
-  buf B79(DA_[2], DA[2]);
-  buf B80(DA_[3], DA[3]);
-  buf B81(DA_[4], DA[4]);
-  buf B82(DA_[5], DA[5]);
-  buf B83(DA_[6], DA[6]);
-  buf B84(DA_[7], DA[7]);
-  buf B85(DA_[8], DA[8]);
-  buf B86(DA_[9], DA[9]);
-  buf B87(DA_[10], DA[10]);
-  buf B88(DA_[11], DA[11]);
-  buf B89(DA_[12], DA[12]);
-  buf B90(DA_[13], DA[13]);
-  buf B91(DA_[14], DA[14]);
-  buf B92(DA_[15], DA[15]);
-  buf B93(DA_[16], DA[16]);
-  buf B94(DA_[17], DA[17]);
-  buf B95(DA_[18], DA[18]);
-  buf B96(DA_[19], DA[19]);
-  buf B97(DA_[20], DA[20]);
-  buf B98(DA_[21], DA[21]);
-  buf B99(DA_[22], DA[22]);
-  buf B100(DA_[23], DA[23]);
-  buf B101(DA_[24], DA[24]);
-  buf B102(DA_[25], DA[25]);
-  buf B103(DA_[26], DA[26]);
-  buf B104(DA_[27], DA[27]);
-  buf B105(DA_[28], DA[28]);
-  buf B106(DA_[29], DA[29]);
-  buf B107(DA_[30], DA[30]);
-  buf B108(DA_[31], DA[31]);
-  buf B109(CLKB_, CLKB);
-  buf B110(CENB_, CENB);
-  buf B111(WENB_, WENB);
-  buf B112(AB_[0], AB[0]);
-  buf B113(AB_[1], AB[1]);
-  buf B114(AB_[2], AB[2]);
-  buf B115(AB_[3], AB[3]);
-  buf B116(AB_[4], AB[4]);
-  buf B117(AB_[5], AB[5]);
-  buf B118(AB_[6], AB[6]);
-  buf B119(AB_[7], AB[7]);
-  buf B120(AB_[8], AB[8]);
-  buf B121(AB_[9], AB[9]);
-  buf B122(DB_[0], DB[0]);
-  buf B123(DB_[1], DB[1]);
-  buf B124(DB_[2], DB[2]);
-  buf B125(DB_[3], DB[3]);
-  buf B126(DB_[4], DB[4]);
-  buf B127(DB_[5], DB[5]);
-  buf B128(DB_[6], DB[6]);
-  buf B129(DB_[7], DB[7]);
-  buf B130(DB_[8], DB[8]);
-  buf B131(DB_[9], DB[9]);
-  buf B132(DB_[10], DB[10]);
-  buf B133(DB_[11], DB[11]);
-  buf B134(DB_[12], DB[12]);
-  buf B135(DB_[13], DB[13]);
-  buf B136(DB_[14], DB[14]);
-  buf B137(DB_[15], DB[15]);
-  buf B138(DB_[16], DB[16]);
-  buf B139(DB_[17], DB[17]);
-  buf B140(DB_[18], DB[18]);
-  buf B141(DB_[19], DB[19]);
-  buf B142(DB_[20], DB[20]);
-  buf B143(DB_[21], DB[21]);
-  buf B144(DB_[22], DB[22]);
-  buf B145(DB_[23], DB[23]);
-  buf B146(DB_[24], DB[24]);
-  buf B147(DB_[25], DB[25]);
-  buf B148(DB_[26], DB[26]);
-  buf B149(DB_[27], DB[27]);
-  buf B150(DB_[28], DB[28]);
-  buf B151(DB_[29], DB[29]);
-  buf B152(DB_[30], DB[30]);
-  buf B153(DB_[31], DB[31]);
-  buf B154(EMAA_[0], EMAA[0]);
-  buf B155(EMAA_[1], EMAA[1]);
-  buf B156(EMAA_[2], EMAA[2]);
-  buf B157(EMAB_[0], EMAB[0]);
-  buf B158(EMAB_[1], EMAB[1]);
-  buf B159(EMAB_[2], EMAB[2]);
-  buf B160(RETN_, RETN);
+  buf B76(DA_[0], DA[0]);
+  buf B77(DA_[1], DA[1]);
+  buf B78(DA_[2], DA[2]);
+  buf B79(DA_[3], DA[3]);
+  buf B80(DA_[4], DA[4]);
+  buf B81(DA_[5], DA[5]);
+  buf B82(DA_[6], DA[6]);
+  buf B83(DA_[7], DA[7]);
+  buf B84(DA_[8], DA[8]);
+  buf B85(DA_[9], DA[9]);
+  buf B86(DA_[10], DA[10]);
+  buf B87(DA_[11], DA[11]);
+  buf B88(DA_[12], DA[12]);
+  buf B89(DA_[13], DA[13]);
+  buf B90(DA_[14], DA[14]);
+  buf B91(DA_[15], DA[15]);
+  buf B92(DA_[16], DA[16]);
+  buf B93(DA_[17], DA[17]);
+  buf B94(DA_[18], DA[18]);
+  buf B95(DA_[19], DA[19]);
+  buf B96(DA_[20], DA[20]);
+  buf B97(DA_[21], DA[21]);
+  buf B98(DA_[22], DA[22]);
+  buf B99(DA_[23], DA[23]);
+  buf B100(DA_[24], DA[24]);
+  buf B101(DA_[25], DA[25]);
+  buf B102(DA_[26], DA[26]);
+  buf B103(DA_[27], DA[27]);
+  buf B104(DA_[28], DA[28]);
+  buf B105(DA_[29], DA[29]);
+  buf B106(DA_[30], DA[30]);
+  buf B107(DA_[31], DA[31]);
+  buf B108(CLKB_, CLKB);
+  buf B109(CENB_, CENB);
+  buf B110(WENB_, WENB);
+  buf B111(AB_[0], AB[0]);
+  buf B112(AB_[1], AB[1]);
+  buf B113(AB_[2], AB[2]);
+  buf B114(AB_[3], AB[3]);
+  buf B115(AB_[4], AB[4]);
+  buf B116(AB_[5], AB[5]);
+  buf B117(AB_[6], AB[6]);
+  buf B118(AB_[7], AB[7]);
+  buf B119(AB_[8], AB[8]);
+  buf B120(DB_[0], DB[0]);
+  buf B121(DB_[1], DB[1]);
+  buf B122(DB_[2], DB[2]);
+  buf B123(DB_[3], DB[3]);
+  buf B124(DB_[4], DB[4]);
+  buf B125(DB_[5], DB[5]);
+  buf B126(DB_[6], DB[6]);
+  buf B127(DB_[7], DB[7]);
+  buf B128(DB_[8], DB[8]);
+  buf B129(DB_[9], DB[9]);
+  buf B130(DB_[10], DB[10]);
+  buf B131(DB_[11], DB[11]);
+  buf B132(DB_[12], DB[12]);
+  buf B133(DB_[13], DB[13]);
+  buf B134(DB_[14], DB[14]);
+  buf B135(DB_[15], DB[15]);
+  buf B136(DB_[16], DB[16]);
+  buf B137(DB_[17], DB[17]);
+  buf B138(DB_[18], DB[18]);
+  buf B139(DB_[19], DB[19]);
+  buf B140(DB_[20], DB[20]);
+  buf B141(DB_[21], DB[21]);
+  buf B142(DB_[22], DB[22]);
+  buf B143(DB_[23], DB[23]);
+  buf B144(DB_[24], DB[24]);
+  buf B145(DB_[25], DB[25]);
+  buf B146(DB_[26], DB[26]);
+  buf B147(DB_[27], DB[27]);
+  buf B148(DB_[28], DB[28]);
+  buf B149(DB_[29], DB[29]);
+  buf B150(DB_[30], DB[30]);
+  buf B151(DB_[31], DB[31]);
+  buf B152(EMAA_[0], EMAA[0]);
+  buf B153(EMAA_[1], EMAA[1]);
+  buf B154(EMAA_[2], EMAA[2]);
+  buf B155(EMAB_[0], EMAB[0]);
+  buf B156(EMAB_[1], EMAB[1]);
+  buf B157(EMAB_[2], EMAB[2]);
+  buf B158(RETN_, RETN);
 
   assign QA_ = RETN_ ? (QA_int) : {32{1'b0}};
   assign QB_ = RETN_ ? (QB_int) : {32{1'b0}};
@@ -939,7 +935,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
     end else if (CENA_int === 1'b0) begin
       mux_address = (AA_int & 4'b1111);
       row_address = (AA_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 32)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -991,7 +987,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QA_int = {32{1'b0}};
       CENA_int = 1'b0;
       WENA_int = 1'b0;
-      AA_int = {10{1'b0}};
+      AA_int = {9{1'b0}};
       DA_int = {32{1'b0}};
       EMAA_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -999,7 +995,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QA_int = {32{1'bx}};
       CENA_int = 1'bx;
       WENA_int = 1'bx;
-      AA_int = {10{1'bx}};
+      AA_int = {9{1'bx}};
       DA_int = {32{1'bx}};
       EMAA_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -1096,7 +1092,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
     end else if (CENB_int === 1'b0) begin
       mux_address = (AB_int & 4'b1111);
       row_address = (AB_int >> 4);
-      if (row_address >= 64)
+      if (row_address >= 32)
         row = {512{1'bx}};
       else
         row = mem[row_address];
@@ -1148,7 +1144,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QB_int = {32{1'b0}};
       CENB_int = 1'b0;
       WENB_int = 1'b0;
-      AB_int = {10{1'b0}};
+      AB_int = {9{1'b0}};
       DB_int = {32{1'b0}};
       EMAB_int = {3{1'b0}};
       RETN_int = 1'b0;
@@ -1156,7 +1152,7 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       QB_int = {32{1'bx}};
       CENB_int = 1'bx;
       WENB_int = 1'bx;
-      AB_int = {10{1'bx}};
+      AB_int = {9{1'bx}};
       DB_int = {32{1'bx}};
       EMAB_int = {3{1'bx}};
       RETN_int = 1'bx;
@@ -1266,10 +1262,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
     AA_int[8] = 1'bx;
     if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
   end
-  always @ NOT_AA9 begin
-    AA_int[9] = 1'bx;
-    if ( globalNotifier0 === 1'b0 ) globalNotifier0 = 1'bx;
-  end
   always @ NOT_AB0 begin
     AB_int[0] = 1'bx;
     if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
@@ -1304,10 +1296,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   end
   always @ NOT_AB8 begin
     AB_int[8] = 1'bx;
-    if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
-  end
-  always @ NOT_AB9 begin
-    AB_int[9] = 1'bx;
     if ( globalNotifier1 === 1'b0 ) globalNotifier1 = 1'bx;
   end
   always @ NOT_CENA begin
@@ -1653,8 +1641,8 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
   end
 
   function is_contention;
-    input [9:0] aa;
-    input [9:0] ab;
+    input [8:0] aa;
+    input [8:0] ab;
     input  wena;
     input  wenb;
     reg result;
@@ -1760,8 +1748,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       $setuphold(posedge CLKA &&& CENA_flag, negedge CENA, 1.000, 0.500, NOT_CENA);
       $setuphold(posedge CLKA &&& flagA, posedge WENA, 1.000, 0.500, NOT_WENA);
       $setuphold(posedge CLKA &&& flagA, negedge WENA, 1.000, 0.500, NOT_WENA);
-      $setuphold(posedge CLKA &&& flagA, posedge AA[9], 1.000, 0.500, NOT_AA9);
-      $setuphold(posedge CLKA &&& flagA, negedge AA[9], 1.000, 0.500, NOT_AA9);
       $setuphold(posedge CLKA &&& flagA, posedge AA[8], 1.000, 0.500, NOT_AA8);
       $setuphold(posedge CLKA &&& flagA, negedge AA[8], 1.000, 0.500, NOT_AA8);
       $setuphold(posedge CLKA &&& flagA, posedge AA[7], 1.000, 0.500, NOT_AA7);
@@ -1858,8 +1844,6 @@ module data_sram (QA, QB, CLKA, CENA, WENA, AA, DA, CLKB, CENB, WENB, AB, DB, EM
       $setuphold(posedge CLKB &&& CENB_flag, negedge CENB, 1.000, 0.500, NOT_CENB);
       $setuphold(posedge CLKB &&& flagB, posedge WENB, 1.000, 0.500, NOT_WENB);
       $setuphold(posedge CLKB &&& flagB, negedge WENB, 1.000, 0.500, NOT_WENB);
-      $setuphold(posedge CLKB &&& flagB, posedge AB[9], 1.000, 0.500, NOT_AB9);
-      $setuphold(posedge CLKB &&& flagB, negedge AB[9], 1.000, 0.500, NOT_AB9);
       $setuphold(posedge CLKB &&& flagB, posedge AB[8], 1.000, 0.500, NOT_AB8);
       $setuphold(posedge CLKB &&& flagB, negedge AB[8], 1.000, 0.500, NOT_AB8);
       $setuphold(posedge CLKB &&& flagB, posedge AB[7], 1.000, 0.500, NOT_AB7);

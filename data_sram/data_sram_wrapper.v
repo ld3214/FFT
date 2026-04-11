@@ -1,70 +1,41 @@
-`include "data_sram.v"
+`include "tw_sram.v"
 `timescale 1ns/1ps
 `define DELAY #1
 module data_sram_wrapper #(
   parameter DW = 32,
-  parameter AW = 10
+  parameter AW = 9
 ) (
-  // Port A
-  input  wire          clka ,
-  input  wire          cena , // Chip Enable A (active low)
-  input  wire          wena , // Write Enable A (active low)
-  input  wire [AW-1:0] addra,
-  input  wire [DW-1:0] dina ,
-  output wire [DW-1:0] douta,
-  // Port B
-  input  wire          clkb ,
-  input  wire          cenb , // Chip Enable B (active low)
-  input  wire          wenb , // Write Enable B (active low)
-  input  wire [AW-1:0] addrb,
-  input  wire [DW-1:0] dinb ,
-  output wire [DW-1:0] doutb
+  input  wire          clk ,
+  input  wire          cen , // Chip Enable (active low)
+  input  wire [AW-1:0] addr,
+  input  wire [DW-1:0] din ,
+  input  wire          wen , // Byte Write Enable (active low)
+  output wire [DW-1:0] dout
 );
 
-  // Port A delayed signals
-  wire          cena_delayed ;
-  wire          wena_delayed ;
-  wire [AW-1:0] addra_delayed;
-  wire [DW-1:0] dina_delayed ;
+  wire          cen_delayed ;
+  wire          wen_delayed ;
+  wire [AW-1:0] addr_delayed;
+  wire [DW-1:0] din_delayed ;
 
-  assign `DELAY cena_delayed  = cena;
-  assign `DELAY wena_delayed  = wena;
-  assign `DELAY addra_delayed = addra;
-  assign `DELAY dina_delayed  = dina;
+  assign `DELAY cen_delayed  = cen;
+  assign `DELAY wen_delayed  = wen;
+  assign `DELAY addr_delayed = addr;
+  assign `DELAY din_delayed  = din;
 
-  // Port B delayed signals
-  wire          cenb_delayed ;
-  wire          wenb_delayed ;
-  wire [AW-1:0] addrb_delayed;
-  wire [DW-1:0] dinb_delayed ;
+  wire [31:0] w_dout;
+  assign dout = w_dout[DW-1:0];
 
-  assign `DELAY cenb_delayed  = cenb;
-  assign `DELAY wenb_delayed  = wenb;
-  assign `DELAY addrb_delayed = addrb;
-  assign `DELAY dinb_delayed  = dinb;
-
-  wire [31:0] w_douta;
-  wire [31:0] w_doutb;
-  assign douta = w_douta[DW-1:0];
-  assign doutb = w_doutb[DW-1:0];
-
-  // Dual-Port SRAM Instantiation
+  // Dummy Instantiation - replace with your vendor's macro
   data_sram sram_inst (
-    .CLKA (clka          ),
-    .CENA (cena_delayed  ),
-    .WENA (wena_delayed  ),
-    .AA   (addra_delayed ),
-    .DA   (dina_delayed  ),
-    .QA   (w_douta       ),
-    .EMAA (3'b000        ),
-    .CLKB (clkb          ),
-    .CENB (cenb_delayed  ),
-    .WENB (wenb_delayed  ),
-    .AB   (addrb_delayed ),
-    .DB   (dinb_delayed  ),
-    .QB   (w_doutb       ),
-    .EMAB (3'b000        ),
-    .RETN (1'b1          )
+    .CLK (clk         ),
+    .CEN (cen_delayed ),
+    .WEN (wen_delayed ),
+    .A   (addr_delayed),
+    .D   (din_delayed ),
+    .EMA (3'b000      ),
+    .RETN(1'b1        ),
+    .Q   (w_dout      )
   );
 
 endmodule
