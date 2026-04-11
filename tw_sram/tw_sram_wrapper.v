@@ -6,10 +6,10 @@ module tw_sram_wrapper #(
   parameter AW = 9
 ) (
   input  wire          clk ,
-  input  wire          cen , // Chip Enable (active low)
+  input  wire          cen , 
   input  wire [AW-1:0] addr,
   input  wire [DW-1:0] din ,
-  input  wire          wen , // Byte Write Enable (active low)
+  input  wire          wen , 
   output wire [DW-1:0] dout
 );
 

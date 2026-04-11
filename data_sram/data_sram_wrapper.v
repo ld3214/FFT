@@ -1,4 +1,4 @@
-`include "tw_sram.v"
+`include "data_sram.v"
 `timescale 1ns/1ps
 `define DELAY #1
 module data_sram_wrapper #(
