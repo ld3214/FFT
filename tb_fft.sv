@@ -110,6 +110,8 @@ module testbench;
     endtask
 
     // ---- Task: 读取标准接口 (配合 ext_rd_en 使用) ----
+    // 10级FFT后结果在 banks 0,1 (Pair 0)
+    // bank_id=0 → port 0 (bank 0), bank_id=1 → port 1 (bank 1)
     task read_data_sram_ext;
         input [1:0]    bank;
         input [AW-1:0] addr;
@@ -118,9 +120,9 @@ module testbench;
             // 1. 下降沿驱动，拉高读使能，分配地址
             @(negedge clk);
             ext_rd_en   <= 1'b1;             
-            ext_rd_pair <= {1'b0, bank};  // bank=0 -> Pair 0(Banks 0,1); bank=1 -> Pair 1(Banks 2,3)
+            ext_rd_pair <= 2'd0;  // 始终从 Pair 0 (banks 0,1) 读取结果
             
-            if (bank == 1'b0) begin
+            if (bank[0] == 1'b0) begin
                 ext_rd_addr_0 <= addr;
             end else begin
                 ext_rd_addr_1 <= addr;
@@ -134,7 +136,7 @@ module testbench;
             #1; // 延迟 1ns 避开时钟边沿的毛刺/竞争
             
             // 采样结果
-            if (bank == 1'b0) begin
+            if (bank[0] == 1'b0) begin
                 data = ext_rd_dout_0;
             end else begin
                 data = ext_rd_dout_1;
